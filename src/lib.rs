@@ -2,6 +2,18 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::panic::Location;
 
+mod cx;
+mod key;
+mod tree;
+
+pub use cx::Cx;
+pub use tree::Tree;
+
+// Leaving the following code around as a sketch for the memoization.
+// Delete when implemented in the main tree.
+
+/*
+
 #[derive(Default)]
 pub struct Cx {
     store: HashMap<Key, Box<dyn Any>>,
@@ -38,10 +50,4 @@ impl Cx {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+*/

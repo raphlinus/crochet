@@ -1,16 +1,17 @@
 //! A test binary, should move to example
 
-use crochet::Cx;
+use crochet::{Cx, Tree};
 
 fn run(cx: &mut Cx) {
-    let count = cx.state(|| 0u32);
-    println!("current count: {}", count);
-    *count += 1;
+    cx.begin("hello");
+    cx.end();
 }
 
 fn main() {
-    let mut cx = Cx::default();
-    cx.foo();
+    let tree = Tree::new("root");
+    println!("{:?}", tree);
+    let mut cx = Cx::new(tree);
     run(&mut cx);
-    run(&mut cx);
+    let tree = cx.into_tree();
+    println!("{:?}", tree);
 }
