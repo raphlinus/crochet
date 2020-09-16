@@ -2,12 +2,12 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::panic::Location;
 
-mod cx;
+//mod cx;
 mod key;
 mod tree;
 
-pub use cx::Cx;
-pub use tree::Tree;
+//pub use cx::Cx;
+pub use tree::{Tree, MutCursor};
 
 // Leaving the following code around as a sketch for the memoization.
 // Delete when implemented in the main tree.
