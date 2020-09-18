@@ -23,12 +23,6 @@ pub struct Key {
     pub(crate) seq_ix: usize,
 }
 
-/// A key path.
-///
-/// This represents a path from the root of a tree to any node within
-/// it. Perhaps it should be a newtype, but for now a Vec is convenient.
-pub type KeyPath = Vec<Key>;
-
 impl Key {
     pub fn new(caller: impl Into<Caller>, seq_ix: usize) -> Key {
         Key {

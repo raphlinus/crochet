@@ -40,6 +40,7 @@ fn debug_report(tree: &Tree, mutation: &Mutation) {
     debug_print_mutation(mut_iter, 0);
 }
 
+#[allow(unused)]
 fn crochet_toy() {
     let mut tree = Tree::default();
 
@@ -68,8 +69,13 @@ fn main() -> Result<(), PlatformError> {
 struct MyAppLogic;
 
 impl MyAppLogic {
-    fn run(&mut self, cx: &MutCursor) {
-        // TODO
+    fn run(&mut self, cx: &mut MutCursor) {
+        cx.leaf("button: Hello".into());
+        cx.begin("row".into());
+        cx.leaf("button: 1".into());
+        cx.leaf("button: 2".into());
+        cx.end();
+        cx.leaf("button: World".into());
     }
 }
 

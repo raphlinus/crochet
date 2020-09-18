@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies.druid]
 git = "https://github.com/linebender/druid"
 rev = "7c3646509fffb412d16f5746b8a6c11dbaacd602"
+
+[dependencies]
+log = "0.4.11"

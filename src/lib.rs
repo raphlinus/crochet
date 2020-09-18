@@ -1,6 +1,7 @@
 //mod cx;
 mod any_widget;
 mod app_holder;
+mod flex;
 mod key;
 mod tree;
 
