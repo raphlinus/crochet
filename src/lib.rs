@@ -7,7 +7,7 @@ mod key;
 mod tree;
 
 //pub use cx::Cx;
-pub use tree::{Tree, MutCursor};
+pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Tree};
 
 // Leaving the following code around as a sketch for the memoization.
 // Delete when implemented in the main tree.
