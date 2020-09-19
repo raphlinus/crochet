@@ -93,8 +93,11 @@ impl Row {
     }
 
     #[track_caller]
-    pub fn build(self, cx: &mut Cx) {
-        cx.begin_view(Box::new(self), Location::caller())
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
+        cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        result
     }
 }
 

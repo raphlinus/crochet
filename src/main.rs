@@ -23,10 +23,10 @@ impl MyAppLogic {
         if Button::new("Increment").build(cx) {
             self.count += 1;
         }
-        Row::new().build(cx);
-        Button::new("A button").build(cx);
-        Button::new("Another button").build(cx);
-        cx.end();
+        Row::new().build(cx, |cx| {
+            Button::new("A button").build(cx);
+            Button::new("Another button").build(cx);
+        });
         if self.count > 3 && self.count < 6 {
             Label::new("You did it!").build(cx);
         }
