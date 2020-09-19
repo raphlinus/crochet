@@ -40,8 +40,8 @@ impl AppHolder {
     /// We cheat slightly, only implementing this for event contexts.
     /// This is probably good enough for a prototype, but will probably
     /// need more care for a real integration.
-    fn run_app_logic(&mut self, ctx: &mut EventCtx) {
-        let mut cx = Cx::new(&self.tree);
+    fn run_app_logic(&mut self, ctx: &mut EventCtx, data: &mut DruidAppData) {
+        let mut cx = Cx::new(&self.tree, data);
         (self.app_logic)(&mut cx);
         let mutation = cx.into_mutation();
         let mut_iter = MutationIter::new(&self.tree, &mutation);
@@ -53,7 +53,7 @@ impl AppHolder {
 impl Widget<DruidAppData> for AppHolder {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
         self.child.event(ctx, event, data, env);
-        self.run_app_logic(ctx);
+        self.run_app_logic(ctx, data);
     }
 
     fn lifecycle(

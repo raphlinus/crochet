@@ -1,14 +1,27 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use druid::widget::prelude::*;
 use druid::widget::{Button, Click, ControllerHost};
+use druid::Data;
 
 use crate::flex::Flex;
 use crate::{Id, MutationIter};
 
 /// The type we use for app data for Druid integration.
 ///
-/// It is currently empty, but it's possible we'll want to put
-/// action queues here.
-pub type DruidAppData = ();
+/// Currently this is action queues.
+///
+/// It should probably be a vec of actions, but we can refine
+/// later. For button clicks it doesn't matter.
+#[derive(Clone, Data, Default)]
+pub struct DruidAppData(Arc<HashMap<Id, Action>>);
+
+/// Actions that can be produced by widgets,
+#[derive(Clone)]
+pub enum Action {
+    Clicked,
+}
 
 /// A widget that backs any render element in the crochet tree.
 ///
@@ -113,13 +126,28 @@ impl AnyWidget {
         let args = split_iter.next();
         match widget_type {
             "button" => {
-                let button = Button::new(args.unwrap_or("Button"))
-                    .on_click(move |_, _, _| println!("button {:?} clicked", id));
+                let button = Button::new(args.unwrap_or("Button")).on_click(
+                    move |_, data: &mut DruidAppData, _| data.queue_action(id, Action::Clicked),
+                );
                 AnyWidget::Button(button)
             }
             "row" => AnyWidget::Flex(Flex::row()),
             "column" => AnyWidget::Flex(Flex::column()),
             _ => panic!("unknown widget type {}", widget_type),
+        }
+    }
+}
+
+impl DruidAppData {
+    fn queue_action(&mut self, id: Id, action: Action) {
+        Arc::make_mut(&mut self.0).insert(id, action);
+    }
+
+    pub(crate) fn dequeue_action(&mut self, id: Id) -> Option<Action> {
+        if self.0.contains_key(&id) {
+            Arc::make_mut(&mut self.0).remove(&id)
+        } else {
+            None
         }
     }
 }

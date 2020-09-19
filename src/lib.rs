@@ -6,6 +6,7 @@ mod id;
 mod key;
 mod tree;
 
+pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
 pub use cx::Cx;
 pub use id::Id;

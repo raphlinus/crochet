@@ -297,7 +297,9 @@ impl<'a> MutCursor<'a> {
     }
 
     /// Reap the mutation.
-    pub fn into_mutation(self) -> Mutation {
+    pub fn into_mutation(mut self) -> Mutation {
+        let n_trim = self.tree.slots.len() - self.ix;
+        self.mutation.delete(n_trim);
         self.mutation
     }
 
