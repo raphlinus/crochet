@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use druid::widget::prelude::*;
-use druid::widget::{Button, Click, ControllerHost};
+use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
 use crate::flex::Flex;
@@ -32,6 +32,7 @@ pub enum Action {
 /// method is added to `Widget`.
 pub enum AnyWidget {
     Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
+    Label(Label<DruidAppData>),
     Flex(Flex),
 }
 
@@ -46,6 +47,7 @@ macro_rules! methods {
     ($method_name: ident, $self: ident, $($args:ident),+) => {
         match $self {
             AnyWidget::Button(w) => w.$method_name($($args),+),
+            AnyWidget::Label(w) => w.$method_name($($args),+),
             AnyWidget::Flex(w) => w.$method_name($($args),+),
         }
     };
@@ -96,11 +98,19 @@ impl AnyWidget {
     pub(crate) fn mutate_update(
         &mut self,
         ctx: &mut EventCtx,
-        _body: Option<&String>,
+        body: Option<&String>,
         mut_iter: MutationIter,
     ) {
         match self {
             AnyWidget::Button(_) => (),
+            AnyWidget::Label(l) => {
+                if let Some(descr) = body {
+                    if let Some(text) = descr.splitn(2, ": ").skip(1).next() {
+                        l.set_text(text.to_string());
+                    }
+                    ctx.request_layout();
+                }
+            }
             AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
         }
     }
@@ -130,6 +140,10 @@ impl AnyWidget {
                     move |_, data: &mut DruidAppData, _| data.queue_action(id, Action::Clicked),
                 );
                 AnyWidget::Button(button)
+            }
+            "label" => {
+                let label = Label::new(args.unwrap_or("Label"));
+                AnyWidget::Label(label)
             }
             "row" => AnyWidget::Flex(Flex::row()),
             "column" => AnyWidget::Flex(Flex::column()),

@@ -14,7 +14,10 @@ impl<'a> Cx<'a> {
     /// Only public for experimentation.
     pub fn new(tree: &'a Tree, app_data: &'a mut DruidAppData) -> Cx<'a> {
         let mut_cursor = MutCursor::new(tree);
-        Cx { mut_cursor, app_data }
+        Cx {
+            mut_cursor,
+            app_data,
+        }
     }
 
     pub fn into_mutation(self) -> Mutation {
@@ -42,5 +45,12 @@ impl<'a> Cx<'a> {
         let id = self.mut_cursor.begin_loc(body, Location::caller());
         self.mut_cursor.end();
         self.app_data.dequeue_action(id).is_some()
+    }
+
+    #[track_caller]
+    pub fn label(&mut self, label: impl AsRef<str>) {
+        let body = format!("label: {}", label.as_ref());
+        self.mut_cursor.begin_loc(body, Location::caller());
+        self.mut_cursor.end();
     }
 }

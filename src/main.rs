@@ -60,16 +60,12 @@ struct MyAppLogic {
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
-        cx.leaf("button: Hello");
-        cx.begin("row");
-        if cx.button("1") {
+        cx.label(format!("current count: {}", self.count));
+        if cx.button("Increment") {
             self.count += 1;
         }
-        cx.leaf("button: 2");
-        cx.end();
-        cx.leaf("button: World");
         if self.count > 3 && self.count < 6 {
-            cx.leaf("button: woot!");
+            cx.label("You did it!");
         }
     }
 }
