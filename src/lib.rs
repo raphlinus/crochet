@@ -5,12 +5,14 @@ mod flex;
 mod id;
 mod key;
 mod tree;
+mod view;
 
 pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
 pub use cx::Cx;
 pub use id::Id;
-pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Tree};
+pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Payload, Tree};
+pub use view::{Button, Label, Row};
 
 // Leaving the following code around as a sketch for the memoization.
 // Delete when implemented in the main tree.

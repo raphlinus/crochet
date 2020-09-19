@@ -6,7 +6,8 @@ use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
 use crate::flex::Flex;
-use crate::{Id, MutationIter};
+use crate::view;
+use crate::{Id, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
 ///
@@ -98,62 +99,43 @@ impl AnyWidget {
     pub(crate) fn mutate_update(
         &mut self,
         ctx: &mut EventCtx,
-        body: Option<&String>,
+        body: Option<&Payload>,
         mut_iter: MutationIter,
     ) {
         match self {
             AnyWidget::Button(_) => (),
             AnyWidget::Label(l) => {
-                if let Some(descr) = body {
-                    if let Some(text) = descr.splitn(2, ": ").skip(1).next() {
-                        l.set_text(text.to_string());
+                if let Some(Payload::View(view)) = body {
+                    if let Some(v) = view.as_any().downcast_ref::<view::Label>() {
+                        l.set_text(v.0.to_string());
+                        ctx.request_layout();
                     }
-                    ctx.request_layout();
                 }
             }
             AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
         }
     }
 
-    /// Create a new widget tree in reponse to a Crochet tree mutation insert request.
+    /// Create a new widget tree in response to a Crochet tree mutation insert request.
     pub(crate) fn mutate_insert(
         ctx: &mut EventCtx,
         id: Id,
-        body: &str,
+        body: &Payload,
         mut_iter: MutationIter,
     ) -> AnyWidget {
-        let mut widget = AnyWidget::create(id, body);
-        widget.mutate_update(ctx, None, mut_iter);
-        widget
-    }
-
-    /// Create a new widget.
-    ///
-    /// This is stringly-typed for expedience; that will change.
-    fn create(id: Id, descr: &str) -> AnyWidget {
-        let mut split_iter = descr.splitn(2, ": ");
-        let widget_type = split_iter.next().unwrap();
-        let args = split_iter.next();
-        match widget_type {
-            "button" => {
-                let button = Button::new(args.unwrap_or("Button")).on_click(
-                    move |_, data: &mut DruidAppData, _| data.queue_action(id, Action::Clicked),
-                );
-                AnyWidget::Button(button)
+        match body {
+            Payload::View(v) => {
+                // TODO: add id
+                let mut widget = v.make_widget(id);
+                widget.mutate_update(ctx, None, mut_iter);
+                widget
             }
-            "label" => {
-                let label = Label::new(args.unwrap_or("Label"));
-                AnyWidget::Label(label)
-            }
-            "row" => AnyWidget::Flex(Flex::row()),
-            "column" => AnyWidget::Flex(Flex::column()),
-            _ => panic!("unknown widget type {}", widget_type),
         }
     }
 }
 
 impl DruidAppData {
-    fn queue_action(&mut self, id: Id, action: Action) {
+    pub(crate) fn queue_action(&mut self, id: Id, action: Action) {
         Arc::make_mut(&mut self.0).insert(id, action);
     }
 

@@ -3,11 +3,13 @@
 use std::panic::Location;
 
 use crate::any_widget::DruidAppData;
-use crate::tree::{MutCursor, Mutation, Tree};
+use crate::id::Id;
+use crate::tree::{MutCursor, Mutation, Payload, Tree};
+use crate::view::View;
 
 pub struct Cx<'a> {
     mut_cursor: MutCursor<'a>,
-    app_data: &'a mut DruidAppData,
+    pub(crate) app_data: &'a mut DruidAppData,
 }
 
 impl<'a> Cx<'a> {
@@ -24,33 +26,29 @@ impl<'a> Cx<'a> {
         self.mut_cursor.into_mutation()
     }
 
-    #[track_caller]
-    pub fn begin(&mut self, body: impl Into<String>) {
-        self.mut_cursor.begin_loc(body.into(), Location::caller());
-    }
-
-    #[track_caller]
-    pub fn leaf(&mut self, body: impl Into<String>) {
-        self.mut_cursor.begin_loc(body.into(), Location::caller());
-        self.mut_cursor.end();
-    }
-
     pub fn end(&mut self) {
         self.mut_cursor.end();
     }
 
-    #[track_caller]
-    pub fn button(&mut self, label: impl AsRef<str>) -> bool {
-        let body = format!("button: {}", label.as_ref());
-        let id = self.mut_cursor.begin_loc(body, Location::caller());
+    /// Add a view as a leaf.
+    ///
+    /// This method is expected to be called mostly by the `build`
+    /// methods on `View` implementors.
+    pub fn leaf_view(&mut self, view: Box<dyn View>, loc: &'static Location) -> Id {
+        let body = Payload::View(view);
+        let id = self.mut_cursor.begin_loc(body, loc);
         self.mut_cursor.end();
-        self.app_data.dequeue_action(id).is_some()
+        id
     }
 
-    #[track_caller]
-    pub fn label(&mut self, label: impl AsRef<str>) {
-        let body = format!("label: {}", label.as_ref());
-        self.mut_cursor.begin_loc(body, Location::caller());
-        self.mut_cursor.end();
+    /// Begin a view element.
+    ///
+    /// This method is expected to be called mostly by the `build`
+    /// methods on `View` implementors.
+    ///
+    /// The API will change to return a child cx.
+    pub fn begin_view(&mut self, view: Box<dyn View>, loc: &'static Location) {
+        let body = Payload::View(view);
+        self.mut_cursor.begin_loc(body, loc);
     }
 }

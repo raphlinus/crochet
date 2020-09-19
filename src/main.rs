@@ -2,48 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Cx, DruidAppData, MutIterItem, Mutation, MutationIter, Tree};
-
-// Some random tree mutation testing functions, unused.
-
-#[allow(unused)]
-fn run(cx: &mut Cx, num_a: usize, num_b: usize) {
-    cx.begin("hello");
-    for i in 0..num_a {
-        cx.leaf(format!("a{}", i));
-    }
-    for i in 0..num_b {
-        cx.leaf(format!("b{}", i));
-    }
-    cx.end();
-}
-
-#[allow(unused)]
-fn debug_print_mutation(mut_iter: MutationIter, level: usize) {
-    for item in mut_iter {
-        let indent = "  ".repeat(level);
-        match item {
-            MutIterItem::Skip(n) => println!("{}Skip {}", indent, n),
-            MutIterItem::Delete(n) => println!("{}Delete {}", indent, n),
-            MutIterItem::Insert(id, body, children) => {
-                println!("{}Insert {:?}: {}", indent, id, body);
-                debug_print_mutation(children, level + 1);
-            }
-            MutIterItem::Update(body, children) => {
-                println!("{}Update {:?}", indent, body);
-                debug_print_mutation(children, level + 1);
-            }
-        }
-    }
-}
-
-#[allow(unused)]
-fn debug_report(tree: &Tree, mutation: &Mutation) {
-    tree.dump();
-    println!("{:?}", mutation);
-    let mut_iter = MutationIter::new(tree, mutation);
-    debug_print_mutation(mut_iter, 0);
-}
+use crochet::{AppHolder, Button, Cx, DruidAppData, Label, Row};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -60,12 +19,16 @@ struct MyAppLogic {
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
-        cx.label(format!("current count: {}", self.count));
-        if cx.button("Increment") {
+        Label::new(format!("current count: {}", self.count)).build(cx);
+        if Button::new("Increment").build(cx) {
             self.count += 1;
         }
+        Row::new().build(cx);
+        Button::new("A button").build(cx);
+        Button::new("Another button").build(cx);
+        cx.end();
         if self.count > 3 && self.count < 6 {
-            cx.label("You did it!");
+            Label::new("You did it!").build(cx);
         }
     }
 }

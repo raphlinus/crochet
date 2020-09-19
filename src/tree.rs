@@ -4,6 +4,7 @@ use std::panic::Location;
 
 use crate::id::Id;
 use crate::key::{Caller, Key};
+use crate::view::View;
 
 /// The payload of an item in the tree.
 ///
@@ -11,10 +12,13 @@ use crate::key::{Caller, Key};
 /// It will shortly become an enum containing state nodes,
 /// descriptors for creating render elements, and possibly
 /// other things.
-pub type Payload = String;
+#[derive(Debug)]
+pub enum Payload {
+    View(Box<dyn View>),
+}
 
 /// The type of an item in the tree.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Item {
     key: Key,
     id: Id,
@@ -516,6 +520,14 @@ impl<'a> MutationIter<'a> {
                     }
                 }
             }
+        }
+    }
+}
+
+impl PartialEq for Payload {
+    fn eq(&self, other: &Payload) -> bool {
+        match (self, other) {
+            (Payload::View(v1), Payload::View(v2)) => v1.same(v2.as_ref()),
         }
     }
 }
