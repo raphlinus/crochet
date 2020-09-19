@@ -1,12 +1,14 @@
-//mod cx;
 mod any_widget;
 mod app_holder;
+mod cx;
 mod flex;
+mod id;
 mod key;
 mod tree;
 
-//pub use cx::Cx;
 pub use app_holder::AppHolder;
+pub use cx::Cx;
+pub use id::Id;
 pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Tree};
 
 // Leaving the following code around as a sketch for the memoization.

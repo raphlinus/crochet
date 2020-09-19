@@ -2,6 +2,7 @@
 
 use std::panic::Location;
 
+use crate::id::Id;
 use crate::key::{Caller, Key};
 
 /// The payload of an item in the tree.
@@ -16,6 +17,7 @@ pub type Payload = String;
 #[derive(Debug, PartialEq)]
 pub struct Item {
     key: Key,
+    id: Id,
     body: Payload,
 }
 
@@ -102,7 +104,7 @@ pub enum MutIterItem<'a> {
     /// Delete the next n children.
     Delete(usize),
     /// Insert a new child.
-    Insert(&'a Payload, MutationIter<'a>),
+    Insert(Id, &'a Payload, MutationIter<'a>),
     /// Update the child.
     ///
     /// For discussion: include old + new values?
@@ -233,7 +235,7 @@ impl<'a> MutCursor<'a> {
     pub fn begin(&mut self, body: Payload) {
         let caller = Location::caller().into();
         let key = Key::new(caller, self.seq_ix(caller));
-        self.begin_item(Item { key, body });
+        self.begin_internal(key, body);
     }
 
     /// Add a leaf element.
@@ -241,33 +243,44 @@ impl<'a> MutCursor<'a> {
     pub fn leaf(&mut self, body: Payload) {
         let caller = Location::caller().into();
         let key = Key::new(caller, self.seq_ix(caller));
-        self.begin_item(Item { key, body });
+        self.begin_internal(key, body);
         self.end();
     }
 
-    fn begin_item(&mut self, item: Item) {
+    pub(crate) fn begin_loc(&mut self, body: Payload, loc: &'static Location) -> Id {
+        let caller = loc.into();
+        let key = Key::new(caller, self.seq_ix(caller));
+        self.begin_internal(key, body)
+    }
+
+    fn begin_internal(&mut self, key: Key, body: Payload) -> Id {
         if self.nest == self.old_nest {
             // TODO: really should have fast path if the key matches
-            if let Some(n) = self.find_key(item.key) {
+            if let Some(n) = self.find_key(key) {
                 self.ix += n;
                 self.mutation.delete(n);
                 if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix) {
-                    if old.key == item.key {
+                    if old.key == key {
                         self.ix += 1;
                         self.nest += 1;
                         self.old_nest += 1;
-                        if old.body == item.body {
+                        let id = old.id;
+                        if old.body == body {
                             self.mutation.skip(1);
                         } else {
+                            let item = Item { key, id, body };
                             self.mutation.update_one(Slot::Begin(item));
                         }
-                        return;
+                        return id;
                     }
                 }
             }
         }
         self.nest += 1;
+        let id = Id::new();
+        let item = Item { key, id, body };
         self.mutation.insert_one(Slot::Begin(item));
+        id
     }
 
     /// End an element.
@@ -434,7 +447,7 @@ impl<'a> Iterator for MutationIter<'a> {
                             self.mut_ix += 1;
                             self.consumed = 0;
                         }
-                        Some(MutIterItem::Insert(&item.body, child_iter))
+                        Some(MutIterItem::Insert(item.id, &item.body, child_iter))
                     } else {
                         None
                     }

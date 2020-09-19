@@ -4,7 +4,7 @@ use druid::widget::prelude::*;
 use druid::{Point, WidgetPod};
 
 use crate::any_widget::{AnyWidget, DruidAppData};
-use crate::{MutCursor, MutationIter, Tree};
+use crate::{Cx, MutationIter, Tree};
 
 /// A container for a user application.
 ///
@@ -21,12 +21,12 @@ pub struct AppHolder {
     ///
     /// It's a choice whether to box this or not. The argument in
     /// favor is simpler types and less monomorphization.
-    app_logic: Box<dyn FnMut(&mut MutCursor)>,
+    app_logic: Box<dyn FnMut(&mut Cx)>,
     child: WidgetPod<DruidAppData, AnyWidget>,
 }
 
 impl AppHolder {
-    pub fn new(app_logic: impl FnMut(&mut MutCursor) + 'static) -> AppHolder {
+    pub fn new(app_logic: impl FnMut(&mut Cx) + 'static) -> AppHolder {
         let child = WidgetPod::new(AnyWidget::column());
         AppHolder {
             tree: Tree::default(),
@@ -41,7 +41,7 @@ impl AppHolder {
     /// This is probably good enough for a prototype, but will probably
     /// need more care for a real integration.
     fn run_app_logic(&mut self, ctx: &mut EventCtx) {
-        let mut cx = MutCursor::new(&self.tree);
+        let mut cx = Cx::new(&self.tree);
         (self.app_logic)(&mut cx);
         let mutation = cx.into_mutation();
         let mut_iter = MutationIter::new(&self.tree, &mutation);
@@ -63,7 +63,7 @@ impl Widget<DruidAppData> for AppHolder {
         data: &DruidAppData,
         env: &Env,
     ) {
-        println!("lifecycle: {:?}", event);
+        //println!("lifecycle: {:?}", event);
         self.child.lifecycle(ctx, event, data, env);
     }
 
@@ -74,7 +74,7 @@ impl Widget<DruidAppData> for AppHolder {
         data: &DruidAppData,
         env: &Env,
     ) {
-        println!("update");
+        //println!("update");
         self.child.update(ctx, data, env);
     }
 
@@ -85,7 +85,7 @@ impl Widget<DruidAppData> for AppHolder {
         data: &DruidAppData,
         env: &Env,
     ) -> Size {
-        println!("layout, bc={:?}", bc);
+        //println!("layout, bc={:?}", bc);
         let size = self.child.layout(ctx, bc, data, env);
         self.child
             .set_layout_rect(ctx, data, env, (Point::ZERO, size).into());
@@ -93,7 +93,7 @@ impl Widget<DruidAppData> for AppHolder {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
-        println!("paint");
+        //println!("paint");
         self.child.paint(ctx, data, env);
     }
 }

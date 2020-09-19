@@ -563,8 +563,8 @@ impl Flex {
                     self.children.drain(ix..ix + n);
                     children_changed = true;
                 }
-                MutIterItem::Insert(body, child_iter) => {
-                    let child = AnyWidget::mutate_insert(ctx, body, child_iter);
+                MutIterItem::Insert(id, body, child_iter) => {
+                    let child = AnyWidget::mutate_insert(ctx, id, body, child_iter);
                     // TODO: extract the flex params from the mutation.
                     let params = 0.0;
                     let child_widget = ChildWidget::new(child, params.into());

@@ -2,10 +2,10 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, MutCursor, MutIterItem, Mutation, MutationIter, Tree};
+use crochet::{AppHolder, Cx, MutIterItem, Mutation, MutationIter, Tree};
 
-fn run(cx: &mut MutCursor, num_a: usize, num_b: usize) {
-    cx.begin("hello".to_string());
+fn run(cx: &mut Cx, num_a: usize, num_b: usize) {
+    cx.begin("hello");
     for i in 0..num_a {
         cx.leaf(format!("a{}", i));
     }
@@ -21,8 +21,8 @@ fn debug_print_mutation(mut_iter: MutationIter, level: usize) {
         match item {
             MutIterItem::Skip(n) => println!("{}Skip {}", indent, n),
             MutIterItem::Delete(n) => println!("{}Delete {}", indent, n),
-            MutIterItem::Insert(body, children) => {
-                println!("{}Insert {}", indent, body);
+            MutIterItem::Insert(id, body, children) => {
+                println!("{}Insert {:?}: {}", indent, id, body);
                 debug_print_mutation(children, level + 1);
             }
             MutIterItem::Update(body, children) => {
@@ -44,13 +44,13 @@ fn debug_report(tree: &Tree, mutation: &Mutation) {
 fn crochet_toy() {
     let mut tree = Tree::default();
 
-    let mut cx = MutCursor::new(&tree);
+    let mut cx = Cx::new(&tree);
     run(&mut cx, 1, 1);
     let mutation = cx.into_mutation();
     debug_report(&tree, &mutation);
     tree.mutate(mutation);
 
-    let mut cx = MutCursor::new(&tree);
+    let mut cx = Cx::new(&tree);
     run(&mut cx, 2, 1);
     let mutation = cx.into_mutation();
     debug_report(&tree, &mutation);
@@ -69,13 +69,13 @@ fn main() -> Result<(), PlatformError> {
 struct MyAppLogic;
 
 impl MyAppLogic {
-    fn run(&mut self, cx: &mut MutCursor) {
-        cx.leaf("button: Hello".into());
-        cx.begin("row".into());
-        cx.leaf("button: 1".into());
-        cx.leaf("button: 2".into());
+    fn run(&mut self, cx: &mut Cx) {
+        cx.leaf("button: Hello");
+        cx.begin("row");
+        cx.leaf("button: 1");
+        cx.leaf("button: 2");
         cx.end();
-        cx.leaf("button: World".into());
+        cx.leaf("button: World");
     }
 }
 

@@ -1,8 +1,8 @@
 use druid::widget::prelude::*;
-use druid::widget::Button;
+use druid::widget::{Button, Click, ControllerHost};
 
 use crate::flex::Flex;
-use crate::MutationIter;
+use crate::{Id, MutationIter};
 
 /// The type we use for app data for Druid integration.
 ///
@@ -18,7 +18,7 @@ pub type DruidAppData = ();
 /// In the expected evolution of the architecture, the `mutate`
 /// method is added to `Widget`.
 pub enum AnyWidget {
-    Button(Button<DruidAppData>),
+    Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
     Flex(Flex),
 }
 
@@ -95,10 +95,11 @@ impl AnyWidget {
     /// Create a new widget tree in reponse to a Crochet tree mutation insert request.
     pub(crate) fn mutate_insert(
         ctx: &mut EventCtx,
+        id: Id,
         body: &str,
         mut_iter: MutationIter,
     ) -> AnyWidget {
-        let mut widget = AnyWidget::create(body);
+        let mut widget = AnyWidget::create(id, body);
         widget.mutate_update(ctx, None, mut_iter);
         widget
     }
@@ -106,13 +107,14 @@ impl AnyWidget {
     /// Create a new widget.
     ///
     /// This is stringly-typed for expedience; that will change.
-    fn create(descr: &str) -> AnyWidget {
+    fn create(id: Id, descr: &str) -> AnyWidget {
         let mut split_iter = descr.splitn(2, ": ");
         let widget_type = split_iter.next().unwrap();
         let args = split_iter.next();
         match widget_type {
             "button" => {
-                let button = Button::new(args.unwrap_or("Button"));
+                let button = Button::new(args.unwrap_or("Button"))
+                    .on_click(move |_, _, _| println!("button {:?} clicked", id));
                 AnyWidget::Button(button)
             }
             "row" => AnyWidget::Flex(Flex::row()),
