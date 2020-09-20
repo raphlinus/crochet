@@ -115,3 +115,35 @@ impl View for Row {
         AnyWidget::Flex(row)
     }
 }
+
+#[derive(Debug)]
+pub struct Column;
+
+impl Column {
+    pub fn new() -> Column {
+        Column
+    }
+
+    #[track_caller]
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
+        cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        result
+    }
+}
+
+impl View for Column {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(_other) = other.as_any().downcast_ref::<Self>() {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let column = crate::flex::Flex::column();
+        AnyWidget::Flex(column)
+    }
+}
