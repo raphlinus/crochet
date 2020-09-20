@@ -582,6 +582,9 @@ impl Flex {
             }
         }
         if children_changed {
+            // Note: I'm still getting "old_data missing in WidgetId(_), skipping update"
+            // errors even though I'm doing this. Not sure what's going on, probably
+            // something to look into when doing the real integration.
             ctx.children_changed();
         }
     }

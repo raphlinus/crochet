@@ -4,16 +4,13 @@ use std::panic::Location;
 
 use crate::id::Id;
 use crate::key::{Caller, Key};
+use crate::state::State;
 use crate::view::View;
 
 /// The payload of an item in the tree.
-///
-/// This is a string for now, just for experimentation.
-/// It will shortly become an enum containing state nodes,
-/// descriptors for creating render elements, and possibly
-/// other things.
 #[derive(Debug)]
 pub enum Payload {
+    State(Box<dyn State>),
     View(Box<dyn View>),
 }
 
@@ -252,12 +249,28 @@ impl<'a> MutCursor<'a> {
     }
 
     pub(crate) fn begin_loc(&mut self, body: Payload, loc: &'static Location) -> Id {
-        let caller = loc.into();
-        let key = Key::new(caller, self.seq_ix(caller));
-        self.begin_internal(key, body)
+        self.begin_internal(self.key_from_loc(loc), body)
     }
 
-    fn begin_internal(&mut self, key: Key, body: Payload) -> Id {
+    pub(crate) fn key_from_loc(&self, loc: &'static Location) -> Key {
+        let caller = loc.into();
+        Key::new(caller, self.seq_ix(caller))
+    }
+
+    /// Begin a new element, using a callback.
+    ///
+    /// If an element with this key exists in the tree, call the callback
+    /// with the old value, and expect an optional value to update it
+    ///
+    /// Otherwise, call the callback with `None`, and expect a new value
+    /// (panics if missing).
+    ///
+    /// This signature is useful for avoiding boxing in the skip case, and
+    /// also for giving feedback on whether a node was inserted.
+    pub(crate) fn begin_core<F, T>(&mut self, key: Key, f: F) -> T
+    where
+        F: FnOnce(Id, Option<&Payload>) -> (Option<Payload>, T),
+    {
         if self.nest == self.old_nest {
             // TODO: really should have fast path if the key matches
             if let Some(n) = self.find_key(key) {
@@ -269,22 +282,39 @@ impl<'a> MutCursor<'a> {
                         self.nest += 1;
                         self.old_nest += 1;
                         let id = old.id;
-                        if old.body == body {
-                            self.mutation.skip(1);
-                        } else {
+                        let (new_body, result) = f(id, Some(&old.body));
+                        if let Some(body) = new_body {
                             let item = Item { key, id, body };
                             self.mutation.update_one(Slot::Begin(item));
+                        } else {
+                            self.mutation.skip(1);
                         }
-                        return id;
+                        return result;
                     }
                 }
             }
         }
         self.nest += 1;
         let id = Id::new();
+        let (body, result) = f(id, None);
+        let body = body.expect("must provide new payload on insert");
         let item = Item { key, id, body };
         self.mutation.insert_one(Slot::Begin(item));
-        id
+        result
+    }
+
+    fn begin_internal(&mut self, key: Key, body: Payload) -> Id {
+        self.begin_core(key, |id, old_body| {
+            if let Some(old_body) = old_body {
+                if old_body == &body {
+                    (None, id)
+                } else {
+                    (Some(body), id)
+                }
+            } else {
+                (Some(body), id)
+            }
+        })
     }
 
     /// End an element.
@@ -297,6 +327,14 @@ impl<'a> MutCursor<'a> {
         } else {
             self.nest -= 1;
             self.mutation.insert_one(Slot::End);
+        }
+    }
+
+    /// Skip one element.
+    pub fn skip_one(&mut self) {
+        if let Some(cur_slots) = self.tree.count_slots(self.ix) {
+            self.ix += cur_slots;
+            self.mutation.skip(cur_slots);
         }
     }
 
@@ -372,6 +410,11 @@ impl<'a> MutCursor<'a> {
             ix += 1;
         }
     }
+
+    /// The ids of all nodes under the current node.
+    pub(crate) fn descendant_ids(&self) -> impl Iterator<Item = Id> + '_ {
+        self.tree.descendant_ids(self.ix)
+    }
 }
 
 impl Tree {
@@ -389,12 +432,31 @@ impl Tree {
     }
 
     /// The number of slots taken by the element starting at `ix`.
+    ///
+    /// Returns `None` if there is no element starting at `ix`.
     fn count_slots(&self, ix: usize) -> Option<usize> {
+        if ix == self.slots.len() {
+            return None;
+        }
         if let Slot::End = self.slots[ix] {
             None
         } else {
             Some(count_slots(&self.slots[ix..]))
         }
+    }
+
+    /// The ids of all nodes in the element starting at `ix`.
+    ///
+    /// This returns 0 if there is no element starting at `ix`.
+    fn descendant_ids(&self, ix: usize) -> impl Iterator<Item = Id> + '_ {
+        let n = self.count_slots(ix).unwrap_or(0);
+        self.slots[ix..ix + n].iter().filter_map(|slot|
+            if let Slot::Begin(b) = slot {
+                Some(b.id)
+            } else {
+                None
+            }
+        )
     }
 }
 
@@ -524,10 +586,14 @@ impl<'a> MutationIter<'a> {
     }
 }
 
+// Note: we don't want PartialEq, we want equality in the sense of
+// Druid's "Data" trait. But PartialEq it is for now, for expedience.
 impl PartialEq for Payload {
     fn eq(&self, other: &Payload) -> bool {
         match (self, other) {
             (Payload::View(v1), Payload::View(v2)) => v1.same(v2.as_ref()),
+            (Payload::State(s1), Payload::State(s2)) => s1.eq(s2.as_ref()),
+            _ => false,
         }
     }
 }

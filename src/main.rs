@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Button, Cx, DruidAppData, Label, Row};
+use crochet::{AppHolder, Button, Cx, Column, DruidAppData, Label, Row};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -19,17 +19,22 @@ struct MyAppLogic {
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
-        Label::new(format!("current count: {}", self.count)).build(cx);
-        if Button::new("Increment").build(cx) {
-            self.count += 1;
-        }
-        Row::new().build(cx, |cx| {
-            Button::new("A button").build(cx);
-            Button::new("Another button").build(cx);
+        cx.if_changed(self.count, |cx| {
+            println!("traversing into if_changed block");
+            Column::new().build(cx, |cx| {
+                Label::new(format!("current count: {}", self.count)).build(cx);
+                if Button::new("Increment").build(cx) {
+                    self.count += 1;
+                }
+                Row::new().build(cx, |cx| {
+                    Button::new("A button").build(cx);
+                    Button::new("Another button").build(cx);
+                });
+                if self.count > 3 && self.count < 6 {
+                    Label::new("You did it!").build(cx);
+                }
+            });
         });
-        if self.count > 3 && self.count < 6 {
-            Label::new("You did it!").build(cx);
-        }
     }
 }
 

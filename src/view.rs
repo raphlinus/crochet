@@ -11,10 +11,11 @@ use crate::id::Id;
 
 pub trait View: AsAny + std::fmt::Debug {
     fn same(&self, other: &dyn View) -> bool;
-    // This will yield Box<dyn Widget> in the future;
+    // This will yield Box<dyn Widget> in the future.
     fn make_widget(&self, id: Id) -> AnyWidget;
 }
 
+// Could use same AsAnyEqState trick to avoid repetitive eq impls.
 pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
 }
@@ -35,7 +36,7 @@ impl Label {
 
     #[track_caller]
     pub fn build(self, cx: &mut Cx) {
-        cx.leaf_view(Box::new(self), Location::caller());
+        cx.leaf_view(self, Location::caller());
     }
 }
 
@@ -63,7 +64,7 @@ impl Button {
 
     #[track_caller]
     pub fn build(self, cx: &mut Cx) -> bool {
-        let id = cx.leaf_view(Box::new(self), Location::caller());
+        let id = cx.leaf_view(self, Location::caller());
         cx.app_data.dequeue_action(id).is_some()
     }
 }

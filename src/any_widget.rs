@@ -7,7 +7,7 @@ use druid::Data;
 
 use crate::flex::Flex;
 use crate::view;
-use crate::{Id, MutationIter, Payload};
+use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
 ///
@@ -35,6 +35,10 @@ pub enum AnyWidget {
     Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
     Label(Label<DruidAppData>),
     Flex(Flex),
+    /// A do-nothing container for another widget.
+    ///
+    /// Currently we use this for state nodes.
+    Passthrough(Box<AnyWidget>),
 }
 
 impl AnyWidget {
@@ -50,6 +54,7 @@ macro_rules! methods {
             AnyWidget::Button(w) => w.$method_name($($args),+),
             AnyWidget::Label(w) => w.$method_name($($args),+),
             AnyWidget::Flex(w) => w.$method_name($($args),+),
+            AnyWidget::Passthrough(w) => w.$method_name($($args),+),
         }
     };
 }
@@ -100,7 +105,7 @@ impl AnyWidget {
         &mut self,
         ctx: &mut EventCtx,
         body: Option<&Payload>,
-        mut_iter: MutationIter,
+        mut mut_iter: MutationIter,
     ) {
         match self {
             AnyWidget::Button(_) => (),
@@ -113,6 +118,11 @@ impl AnyWidget {
                 }
             }
             AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
+            AnyWidget::Passthrough(p) => {
+                if let Some(MutIterItem::Update(body, iter)) = mut_iter.next() {
+                    p.mutate_update(ctx, body, iter);
+                }
+            }
         }
     }
 
@@ -121,14 +131,23 @@ impl AnyWidget {
         ctx: &mut EventCtx,
         id: Id,
         body: &Payload,
-        mut_iter: MutationIter,
+        mut mut_iter: MutationIter,
     ) -> AnyWidget {
         match body {
             Payload::View(v) => {
-                // TODO: add id
                 let mut widget = v.make_widget(id);
                 widget.mutate_update(ctx, None, mut_iter);
                 widget
+            }
+            Payload::State(_) => {
+                // Here we assume that the state node has exactly one
+                // child. Not awesome but it simplifies prototyping.
+                if let Some(MutIterItem::Insert(id, body, iter)) = mut_iter.next() {
+                    let child = Self::mutate_insert(ctx, id, body, iter);
+                    AnyWidget::Passthrough(Box::new(child))
+                } else {
+                    panic!("state node expected child");
+                }
             }
         }
     }
@@ -145,5 +164,10 @@ impl DruidAppData {
         } else {
             None
         }
+    }
+
+    /// Report whether the id has a non-empty action queue.
+    pub(crate) fn has_action(&self, id: Id) -> bool {
+        self.0.contains_key(&id)
     }
 }
