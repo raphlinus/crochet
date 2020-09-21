@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Button, Cx, Column, DruidAppData, Label, Row};
+use crochet::{AppHolder, Button, Column, Cx, DruidAppData, Label, Row};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -33,6 +33,17 @@ impl MyAppLogic {
                 if self.count > 3 && self.count < 6 {
                     Label::new("You did it!").build(cx);
                 }
+                cx.use_future(|| async { 
+                    async_std::task::sleep(std::time::Duration::from_secs(1)).await;
+                    42
+                }, |cx, result| {
+                    let text = if let Some(val) = result {
+                        format!("value: {}", val)
+                    } else {
+                        "waiting...".into()
+                    };
+                    Label::new(text).build(cx);
+                })
             });
         });
     }

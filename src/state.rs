@@ -3,12 +3,17 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-pub trait State {
+/// An object suitable for storing as state.
+///
+/// We might separate the eq and Send roles. Further, we might have
+/// one variant that supports PartialEq and another that supports
+/// Druid Data.
+pub trait State: Send {
     fn as_any(&self) -> &dyn Any;
     fn eq(&self, other: &dyn State) -> bool;
 }
 
-impl<T: PartialEq + 'static> State for T {
+impl<T: PartialEq + Send + 'static> State for T {
     fn as_any(&self) -> &dyn Any {
         self
     }

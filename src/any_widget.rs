@@ -22,6 +22,7 @@ pub struct DruidAppData(Arc<HashMap<Id, Action>>);
 #[derive(Clone)]
 pub enum Action {
     Clicked,
+    FutureResolved,
 }
 
 /// A widget that backs any render element in the crochet tree.
@@ -139,7 +140,7 @@ impl AnyWidget {
                 widget.mutate_update(ctx, None, mut_iter);
                 widget
             }
-            Payload::State(_) => {
+            Payload::State(_) | Payload::Future => {
                 // Here we assume that the state node has exactly one
                 // child. Not awesome but it simplifies prototyping.
                 if let Some(MutIterItem::Insert(id, body, iter)) = mut_iter.next() {

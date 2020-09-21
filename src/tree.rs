@@ -10,6 +10,7 @@ use crate::view::View;
 /// The payload of an item in the tree.
 #[derive(Debug)]
 pub enum Payload {
+    Future,
     State(Box<dyn State>),
     View(Box<dyn View>),
 }
@@ -450,13 +451,13 @@ impl Tree {
     /// This returns 0 if there is no element starting at `ix`.
     fn descendant_ids(&self, ix: usize) -> impl Iterator<Item = Id> + '_ {
         let n = self.count_slots(ix).unwrap_or(0);
-        self.slots[ix..ix + n].iter().filter_map(|slot|
+        self.slots[ix..ix + n].iter().filter_map(|slot| {
             if let Slot::Begin(b) = slot {
                 Some(b.id)
             } else {
                 None
             }
-        )
+        })
     }
 }
 

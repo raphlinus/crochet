@@ -1,10 +1,15 @@
 //! A Druid widget that contains the application.
 
-use druid::widget::prelude::*;
-use druid::{Point, WidgetPod};
+use std::collections::HashMap;
 
-use crate::any_widget::{AnyWidget, DruidAppData};
-use crate::{Cx, MutationIter, Tree};
+use druid::widget::prelude::*;
+use druid::{Point, Selector, SingleUse, WidgetPod};
+
+use crate::any_widget::{Action, AnyWidget, DruidAppData};
+use crate::state::State;
+use crate::{Cx, Id, MutationIter, Tree};
+
+pub const ASYNC: Selector<SingleUse<(Id, Box<dyn State>)>> = Selector::new("crochet.async");
 
 /// A container for a user application.
 ///
@@ -15,6 +20,9 @@ use crate::{Cx, MutationIter, Tree};
 /// As a Druid widget, it takes no app data; in the Crochet
 /// architecture, that is stored in the app logic closure and the
 /// Crochet tree instead.
+///
+/// Right now I'm only thinking about the single window case. For
+/// multi-window, this should probably be an app delegate.
 pub struct AppHolder {
     tree: Tree,
     /// The app logic.
@@ -23,6 +31,13 @@ pub struct AppHolder {
     /// favor is simpler types and less monomorphization.
     app_logic: Box<dyn FnMut(&mut Cx)>,
     child: WidgetPod<DruidAppData, AnyWidget>,
+
+    /// This is where the values of resolved futures are stored. It's
+    /// not ideal, as they are not garbage collected when the Id is
+    /// removed from the tree. A better idea is probably to store them
+    /// in the tree, but that involves more ceremony, especially around
+    /// ownership.
+    resolved_futures: HashMap<Id, Box<dyn State>>,
 }
 
 impl AppHolder {
@@ -32,6 +47,7 @@ impl AppHolder {
             tree: Tree::default(),
             app_logic: Box::new(app_logic),
             child,
+            resolved_futures: Default::default(),
         }
     }
 
@@ -41,7 +57,7 @@ impl AppHolder {
     /// This is probably good enough for a prototype, but will probably
     /// need more care for a real integration.
     fn run_app_logic(&mut self, ctx: &mut EventCtx, data: &mut DruidAppData) {
-        let mut cx = Cx::new(&self.tree, data);
+        let mut cx = Cx::new(&self.tree, data, ctx, &self.resolved_futures);
         (self.app_logic)(&mut cx);
         let mutation = cx.into_mutation();
         let mut_iter = MutationIter::new(&self.tree, &mutation);
@@ -52,6 +68,15 @@ impl AppHolder {
 
 impl Widget<DruidAppData> for AppHolder {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
+        if let Event::Command(cmd) = event {
+            if let Some(payload) = cmd.get(ASYNC) {
+                if let Some((id, val)) = payload.take() {
+                    println!("got command for {:?}, {:?}", id, val);
+                    self.resolved_futures.insert(id, val);
+                    data.queue_action(id, Action::FutureResolved);
+                }
+            }
+        }
         self.child.event(ctx, event, data, env);
         self.run_app_logic(ctx, data);
     }

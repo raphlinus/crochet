@@ -1,25 +1,40 @@
 //! The main Crochet interface.
 
+use std::collections::HashMap;
 use std::panic::Location;
 
+use druid::{EventCtx, SingleUse, Target};
+
+use async_std::future::Future;
+
 use crate::any_widget::DruidAppData;
+use crate::app_holder::ASYNC;
 use crate::id::Id;
 use crate::state::State;
 use crate::tree::{MutCursor, Mutation, Payload, Tree};
 use crate::view::View;
 
-pub struct Cx<'a> {
+pub struct Cx<'a, 'b, 'c> {
     mut_cursor: MutCursor<'a>,
     pub(crate) app_data: &'a mut DruidAppData,
+    event_ctx: &'a mut EventCtx<'b, 'c>,
+    resolved_futures: &'a HashMap<Id, Box<dyn State>>,
 }
 
-impl<'a> Cx<'a> {
+impl<'a, 'b, 'c> Cx<'a, 'b, 'c> {
     /// Only public for experimentation.
-    pub fn new(tree: &'a Tree, app_data: &'a mut DruidAppData) -> Cx<'a> {
+    pub fn new(
+        tree: &'a Tree,
+        app_data: &'a mut DruidAppData,
+        event_ctx: &'a mut EventCtx<'b, 'c>,
+        resolved_futures: &'a HashMap<Id, Box<dyn State>>,
+    ) -> Cx<'a, 'b, 'c> {
         let mut_cursor = MutCursor::new(tree);
         Cx {
             mut_cursor,
             app_data,
+            event_ctx,
+            resolved_futures,
         }
     }
 
@@ -88,7 +103,10 @@ impl<'a> Cx<'a> {
                 (Some(Payload::State(Box::new(data))), true)
             }
         });
-        let actions = self.mut_cursor.descendant_ids().any(|id| self.app_data.has_action(id));
+        let actions = self
+            .mut_cursor
+            .descendant_ids()
+            .any(|id| self.app_data.has_action(id));
         let result = if changed || actions {
             Some(f(self))
         } else {
@@ -97,6 +115,58 @@ impl<'a> Cx<'a> {
             self.mut_cursor.skip_one();
             None
         };
+        self.mut_cursor.end();
+        result
+    }
+
+    /// Spawn a future when first inserted.
+    ///
+    /// When this element is first inserted, call `future_cb` and spawn
+    /// the returned future.
+    ///
+    /// The value of the future is then made available to the main body
+    /// callback.
+    #[track_caller]
+    pub fn use_future<T: Send + 'static, U, F, FC>(
+        &mut self,
+        future_cb: FC,
+        f: impl FnOnce(&mut Cx, Option<&T>) -> U,
+    ) -> U
+    where
+        FC: FnOnce() -> F,
+        F: Future<Output = T> + Send + 'static,
+        T: State + PartialEq + 'static,
+    {
+        let key = self.mut_cursor.key_from_loc(Location::caller());
+        let (id, is_insert) = self.mut_cursor.begin_core(key, |id, old_body| {
+            if let Some(Payload::Future) = old_body {
+                (None, (id, false))
+            } else {
+                // Inserting a new future
+                (Some(Payload::Future), (id, true))
+            }
+        });
+        if is_insert {
+            // Spawn the future.
+            let future = future_cb();
+            let sink = self.event_ctx.get_external_handle();
+            let boxed_future = Box::pin(async move {
+                let result = future.await;
+                let boxed_result: Box<dyn State> = Box::new(result);
+                let payload = (id, boxed_result);
+                if let Err(e) = sink.submit_command(ASYNC, SingleUse::new(payload), Target::Auto) {
+                    println!("error {:?} submitting", e);
+                }
+            });
+            async_std::task::spawn(boxed_future);
+        }
+        // Remove the "FutureResolved" action if it was sent.
+        let _ = self.app_data.dequeue_action(id);
+        let future_result = self
+            .resolved_futures
+            .get(&id)
+            .and_then(|result| result.as_any().downcast_ref());
+        let result = f(self, future_result);
         self.mut_cursor.end();
         result
     }

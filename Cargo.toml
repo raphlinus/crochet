@@ -12,3 +12,6 @@ rev = "7c3646509fffb412d16f5746b8a6c11dbaacd602"
 
 [dependencies]
 log = "0.4.11"
+
+async-std = "1.6.4"
+futures = "0.3.5"

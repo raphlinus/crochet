@@ -12,6 +12,7 @@ pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
 pub use cx::Cx;
 pub use id::Id;
+pub use state::State;
 pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Payload, Tree};
 pub use view::{Button, Column, Label, Row};
 
