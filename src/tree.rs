@@ -10,7 +10,7 @@ use crate::view::View;
 /// The payload of an item in the tree.
 #[derive(Debug)]
 pub enum Payload {
-    Future,
+    Future(Id, Box<dyn State>),
     State(Box<dyn State>),
     View(Box<dyn View>),
 }

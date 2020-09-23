@@ -140,7 +140,7 @@ impl AnyWidget {
                 widget.mutate_update(ctx, None, mut_iter);
                 widget
             }
-            Payload::State(_) | Payload::Future => {
+            Payload::State(_) | Payload::Future(..) => {
                 // Here we assume that the state node has exactly one
                 // child. Not awesome but it simplifies prototyping.
                 if let Some(MutIterItem::Insert(id, body, iter)) = mut_iter.next() {

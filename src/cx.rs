@@ -125,42 +125,68 @@ impl<'a> Cx<'a> {
         result
     }
 
-    /// Spawn a future when first inserted.
+    /// Spawn a future when the data changes.
     ///
-    /// When this element is first inserted, call `future_cb` and spawn
-    /// the returned future.
+    /// When the data changes (including first insert), call `future_cb` and
+    /// spawn the returned future.
     ///
     /// The value of the future is then made available to the main body
     /// callback.
     #[cfg(feature = "async-std")]
     #[track_caller]
-    pub fn use_future<T: Send + 'static, U, F, FC>(
+    pub fn use_future<T, U, V, F, FC>(
         &mut self,
+        data: T,
         future_cb: FC,
-        f: impl FnOnce(&mut Cx, Option<&T>) -> U,
-    ) -> U
+        f: impl FnOnce(&mut Cx, Option<&U>) -> V,
+    ) -> V
     where
-        FC: FnOnce() -> F,
-        F: Future<Output = T> + Send + 'static,
-        T: State + PartialEq + 'static,
+        T: State + PartialEq + Clone + 'static,
+        FC: FnOnce(&T) -> F,
+        // Note: we can remove State bound
+        U: Send + State + 'static,
+        F: Future<Output = U> + Send + 'static,
     {
         let key = self.mut_cursor.key_from_loc(Location::caller());
-        let (id, is_insert) = self.mut_cursor.begin_core(key, |id, old_body| {
-            if let Some(Payload::Future) = old_body {
-                (None, (id, false))
+        // Note: ideally we want to remove this clone, but it's tricky.
+        // After the `begin_core`, either there was no change, in which
+        // case two potentially usable copies, the `data` argument and
+        // the copy in the tree (which are equal), or there was a change,
+        // in which case it was moved into the mutation.
+        //
+        // So I think it's possible, but will require very advanced
+        // fighting with the borrow checker, possibly even unsafe. To
+        // avoid dealing with that now, just clone.
+        let data_clone = data.clone();
+        let (id, f_id, changed) = self.mut_cursor.begin_core(key, |id, old_body| {
+            if let Some(Payload::Future(f_id, old_data)) = old_body {
+                if let Some(old_data) = old_data.as_any().downcast_ref::<T>() {
+                    if old_data == &data {
+                        (None, (id, *f_id, false))
+                    } else {
+                        // Types match, data not equal
+                        let f_id = Id::new();
+                        (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
+                    }
+                } else {
+                    // Downcast failed; this shouldn't happen
+                    let f_id = Id::new();
+                    (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
+                }
             } else {
-                // Inserting a new future
-                (Some(Payload::Future), (id, true))
+                // Probably inserting new state
+                let f_id = Id::new();
+                (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
             }
         });
-        if is_insert {
+        if changed {
             // Spawn the future.
-            let future = future_cb();
+            let future = future_cb(&data_clone);
             let sink = self.event_sink.clone();
             let boxed_future = Box::pin(async move {
                 let result = future.await;
                 let boxed_result: Box<dyn State> = Box::new(result);
-                let payload = (id, boxed_result);
+                let payload = (id, f_id, boxed_result);
                 if let Err(e) = sink.submit_command(ASYNC, SingleUse::new(payload), Target::Auto) {
                     println!("error {:?} submitting", e);
                 }
@@ -171,7 +197,7 @@ impl<'a> Cx<'a> {
         let _ = self.app_data.dequeue_action(id);
         let future_result = self
             .resolved_futures
-            .get(&id)
+            .get(&f_id)
             .and_then(|result| result.as_any().downcast_ref());
         let result = f(self, future_result);
         self.mut_cursor.end();

@@ -9,7 +9,7 @@ use crate::any_widget::{Action, AnyWidget, DruidAppData};
 use crate::state::State;
 use crate::{Cx, Id, MutationIter, Tree};
 
-pub const ASYNC: Selector<SingleUse<(Id, Box<dyn State>)>> = Selector::new("crochet.async");
+pub const ASYNC: Selector<SingleUse<(Id, Id, Box<dyn State>)>> = Selector::new("crochet.async");
 
 /// A container for a user application.
 ///
@@ -71,8 +71,8 @@ impl Widget<DruidAppData> for AppHolder {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
         if let Event::Command(cmd) = event {
             if let Some(payload) = cmd.get(ASYNC) {
-                if let Some((id, val)) = payload.take() {
-                    self.resolved_futures.insert(id, val);
+                if let Some((id, f_id, val)) = payload.take() {
+                    self.resolved_futures.insert(f_id, val);
                     data.queue_action(id, Action::FutureResolved);
                 }
             }

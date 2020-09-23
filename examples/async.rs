@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Cx, DruidAppData, Label};
+use crochet::{AppHolder, Button, Cx, DruidAppData, Label};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -13,14 +13,24 @@ fn main() -> Result<(), PlatformError> {
 }
 
 #[derive(Default)]
-struct MyAppLogic;
+struct MyAppLogic {
+    count: usize,
+}
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
+        Label::new(format!("current count: {}", self.count)).build(cx);
+        if Button::new("Increment").build(cx) {
+            self.count += 1;
+        }
+        if self.count > 3 && self.count < 6 {
+            Label::new("You did it!").build(cx);
+        }
         cx.use_future(
-            || async {
+            self.count,
+            |&val| async move {
                 async_std::task::sleep(std::time::Duration::from_secs(1)).await;
-                42
+                val * 2
             },
             |cx, result| {
                 let text = if let Some(val) = result {
