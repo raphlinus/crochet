@@ -128,7 +128,8 @@ impl<'a> Cx<'a> {
     /// Spawn a future when the data changes.
     ///
     /// When the data changes (including first insert), call `future_cb` and
-    /// spawn the returned future.
+    /// spawn the returned future. Note that if this callback needs to move
+    /// the data into the async callback, it should clone it first.
     ///
     /// The value of the future is then made available to the main body
     /// callback.
@@ -136,52 +137,42 @@ impl<'a> Cx<'a> {
     #[track_caller]
     pub fn use_future<T, U, V, F, FC>(
         &mut self,
-        data: T,
+        data: &T,
         future_cb: FC,
         f: impl FnOnce(&mut Cx, Option<&U>) -> V,
     ) -> V
     where
-        T: State + PartialEq + Clone + 'static,
+        T: State + PartialEq + Clone + Sync + 'static,
         FC: FnOnce(&T) -> F,
         // Note: we can remove State bound
         U: Send + State + 'static,
         F: Future<Output = U> + Send + 'static,
     {
         let key = self.mut_cursor.key_from_loc(Location::caller());
-        // Note: ideally we want to remove this clone, but it's tricky.
-        // After the `begin_core`, either there was no change, in which
-        // case two potentially usable copies, the `data` argument and
-        // the copy in the tree (which are equal), or there was a change,
-        // in which case it was moved into the mutation.
-        //
-        // So I think it's possible, but will require very advanced
-        // fighting with the borrow checker, possibly even unsafe. To
-        // avoid dealing with that now, just clone.
-        let data_clone = data.clone();
         let (id, f_id, changed) = self.mut_cursor.begin_core(key, |id, old_body| {
             if let Some(Payload::Future(f_id, old_data)) = old_body {
                 if let Some(old_data) = old_data.as_any().downcast_ref::<T>() {
-                    if old_data == &data {
+                    if old_data == data {
                         (None, (id, *f_id, false))
                     } else {
                         // Types match, data not equal
                         let f_id = Id::new();
-                        (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
+                        (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
                     }
                 } else {
                     // Downcast failed; this shouldn't happen
                     let f_id = Id::new();
-                    (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
+                    (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
                 }
             } else {
                 // Probably inserting new state
                 let f_id = Id::new();
-                (Some(Payload::Future(f_id, Box::new(data))), (id, f_id, true))
+                (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
             }
         });
         if changed {
             // Spawn the future.
-            let future = future_cb(&data_clone);
+            let future = future_cb(data);
             let sink = self.event_sink.clone();
             let boxed_future = Box::pin(async move {
                 let result = future.await;

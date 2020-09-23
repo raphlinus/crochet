@@ -27,7 +27,7 @@ impl MyAppLogic {
             Label::new("You did it!").build(cx);
         }
         cx.use_future(
-            self.count,
+            &self.count,
             |&val| async move {
                 async_std::task::sleep(std::time::Duration::from_secs(1)).await;
                 val * 2
