@@ -7,7 +7,8 @@ categories = ["gui"]
 readme = "README.md"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.docs.rs]
+features = ["async-std"]
 
 [dependencies.druid]
 git = "https://github.com/linebender/druid"
@@ -16,5 +17,9 @@ rev = "7c3646509fffb412d16f5746b8a6c11dbaacd602"
 [dependencies]
 log = "0.4.11"
 
-async-std = "1.6.4"
+async-std = { version = "1.6.4", optional = true }
 futures = "0.3.5"
+
+[[example]]
+name = "async"
+required-features = ["async-std"]

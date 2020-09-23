@@ -1,8 +1,8 @@
-//! A test binary, should move to example
+//! The classic counter example.
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Button, Column, Cx, DruidAppData, Label, Row};
+use crochet::{AppHolder, Button, Column, Cx, DruidAppData, Label};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -19,6 +19,8 @@ struct MyAppLogic {
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
+        // Note: the if_changed block here is not really necessary, but it
+        // helps test it out.
         cx.if_changed(self.count, |cx| {
             println!("traversing into if_changed block");
             Column::new().build(cx, |cx| {
@@ -26,27 +28,9 @@ impl MyAppLogic {
                 if Button::new("Increment").build(cx) {
                     self.count += 1;
                 }
-                Row::new().build(cx, |cx| {
-                    Button::new("A button").build(cx);
-                    Button::new("Another button").build(cx);
-                });
                 if self.count > 3 && self.count < 6 {
                     Label::new("You did it!").build(cx);
                 }
-                cx.use_future(
-                    || async {
-                        async_std::task::sleep(std::time::Duration::from_secs(1)).await;
-                        42
-                    },
-                    |cx, result| {
-                        let text = if let Some(val) = result {
-                            format!("value: {}", val)
-                        } else {
-                            "waiting...".into()
-                        };
-                        Label::new(text).build(cx);
-                    },
-                )
             });
         });
     }

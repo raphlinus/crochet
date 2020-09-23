@@ -3,11 +3,15 @@
 use std::collections::HashMap;
 use std::panic::Location;
 
+// The unused annotations are mostly for optional async.
+#[allow(unused)]
 use druid::{ExtEventSink, SingleUse, Target};
 
+#[cfg(feature = "async-std")]
 use async_std::future::Future;
 
 use crate::any_widget::DruidAppData;
+#[cfg(feature="async-std")]
 use crate::app_holder::ASYNC;
 use crate::id::Id;
 use crate::state::State;
@@ -17,7 +21,9 @@ use crate::view::View;
 pub struct Cx<'a> {
     mut_cursor: MutCursor<'a>,
     pub(crate) app_data: &'a mut DruidAppData,
+    #[allow(unused)]
     resolved_futures: &'a HashMap<Id, Box<dyn State>>,
+    #[allow(unused)]
     event_sink: &'a ExtEventSink,
 }
 
@@ -126,6 +132,7 @@ impl<'a> Cx<'a> {
     ///
     /// The value of the future is then made available to the main body
     /// callback.
+    #[cfg(feature = "async-std")]
     #[track_caller]
     pub fn use_future<T: Send + 'static, U, F, FC>(
         &mut self,
