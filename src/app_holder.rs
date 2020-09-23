@@ -57,7 +57,8 @@ impl AppHolder {
     /// This is probably good enough for a prototype, but will probably
     /// need more care for a real integration.
     fn run_app_logic(&mut self, ctx: &mut EventCtx, data: &mut DruidAppData) {
-        let mut cx = Cx::new(&self.tree, data, ctx, &self.resolved_futures);
+        let event_sink = ctx.get_external_handle();
+        let mut cx = Cx::new(&self.tree, data, &self.resolved_futures, &event_sink);
         (self.app_logic)(&mut cx);
         let mutation = cx.into_mutation();
         let mut_iter = MutationIter::new(&self.tree, &mutation);
@@ -71,7 +72,6 @@ impl Widget<DruidAppData> for AppHolder {
         if let Event::Command(cmd) = event {
             if let Some(payload) = cmd.get(ASYNC) {
                 if let Some((id, val)) = payload.take() {
-                    println!("got command for {:?}, {:?}", id, val);
                     self.resolved_futures.insert(id, val);
                     data.queue_action(id, Action::FutureResolved);
                 }

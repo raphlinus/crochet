@@ -33,17 +33,20 @@ impl MyAppLogic {
                 if self.count > 3 && self.count < 6 {
                     Label::new("You did it!").build(cx);
                 }
-                cx.use_future(|| async { 
-                    async_std::task::sleep(std::time::Duration::from_secs(1)).await;
-                    42
-                }, |cx, result| {
-                    let text = if let Some(val) = result {
-                        format!("value: {}", val)
-                    } else {
-                        "waiting...".into()
-                    };
-                    Label::new(text).build(cx);
-                })
+                cx.use_future(
+                    || async {
+                        async_std::task::sleep(std::time::Duration::from_secs(1)).await;
+                        42
+                    },
+                    |cx, result| {
+                        let text = if let Some(val) = result {
+                            format!("value: {}", val)
+                        } else {
+                            "waiting...".into()
+                        };
+                        Label::new(text).build(cx);
+                    },
+                )
             });
         });
     }

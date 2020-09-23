@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::panic::Location;
 
-use druid::{EventCtx, SingleUse, Target};
+use druid::{ExtEventSink, SingleUse, Target};
 
 use async_std::future::Future;
 
@@ -14,27 +14,27 @@ use crate::state::State;
 use crate::tree::{MutCursor, Mutation, Payload, Tree};
 use crate::view::View;
 
-pub struct Cx<'a, 'b, 'c> {
+pub struct Cx<'a> {
     mut_cursor: MutCursor<'a>,
     pub(crate) app_data: &'a mut DruidAppData,
-    event_ctx: &'a mut EventCtx<'b, 'c>,
     resolved_futures: &'a HashMap<Id, Box<dyn State>>,
+    event_sink: &'a ExtEventSink,
 }
 
-impl<'a, 'b, 'c> Cx<'a, 'b, 'c> {
+impl<'a> Cx<'a> {
     /// Only public for experimentation.
     pub fn new(
         tree: &'a Tree,
         app_data: &'a mut DruidAppData,
-        event_ctx: &'a mut EventCtx<'b, 'c>,
         resolved_futures: &'a HashMap<Id, Box<dyn State>>,
-    ) -> Cx<'a, 'b, 'c> {
+        event_sink: &'a ExtEventSink,
+    ) -> Cx<'a> {
         let mut_cursor = MutCursor::new(tree);
         Cx {
             mut_cursor,
             app_data,
-            event_ctx,
             resolved_futures,
+            event_sink,
         }
     }
 
@@ -149,7 +149,7 @@ impl<'a, 'b, 'c> Cx<'a, 'b, 'c> {
         if is_insert {
             // Spawn the future.
             let future = future_cb();
-            let sink = self.event_ctx.get_external_handle();
+            let sink = self.event_sink.clone();
             let boxed_future = Box::pin(async move {
                 let result = future.await;
                 let boxed_result: Box<dyn State> = Box::new(result);
