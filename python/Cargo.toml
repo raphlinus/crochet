@@ -1,0 +1,23 @@
+[package]
+name = "crochet_py"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["Raph Levien <raph.levien@gmail.com>"]
+categories = ["gui"]
+readme = "README.md"
+edition = "2018"
+
+[lib]
+name = "crochet_py"
+crate-type = ["cdylib"]
+
+[dependencies.druid]
+git = "https://github.com/linebender/druid"
+rev = "7c3646509fffb412d16f5746b8a6c11dbaacd602"
+
+[dependencies.pyo3]
+version = "0.12"
+features = ["extension-module"]
+
+[dependencies]
+crochet = { path = "../" }
