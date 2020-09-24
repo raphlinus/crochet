@@ -10,6 +10,7 @@ use crate::view::View;
 /// The payload of an item in the tree.
 #[derive(Debug)]
 pub enum Payload {
+    Placeholder,
     Future(Id, Box<dyn State>),
     State(Box<dyn State>),
     View(Box<dyn View>),
@@ -336,6 +337,48 @@ impl<'a> MutCursor<'a> {
         if let Some(cur_slots) = self.tree.count_slots(self.ix) {
             self.ix += cur_slots;
             self.mutation.skip(cur_slots);
+        }
+    }
+
+    /// Delete one element.
+    pub fn delete_one(&mut self) {
+        if let Some(cur_slots) = self.tree.count_slots(self.ix) {
+            self.ix += cur_slots;
+            self.mutation.delete(cur_slots);
+        }
+    }
+
+    /// Begin an element, always inserting.
+    ///
+    /// This works without any regard to keys.
+    pub fn begin_insert(&mut self, body: Payload) {
+        self.nest += 1;
+        let key = Key::null();
+        let id = Id::new();
+        let item = Item { key, id, body };
+        self.mutation.insert_one(Slot::Begin(item));
+    }
+
+    /// Begin an element, always updating.
+    ///
+    /// This works without any regard to keys. It is an error if
+    /// there is not an element at the current location.
+    pub fn begin_update(&mut self, body: Payload) {
+        assert_eq!(self.nest, self.old_nest);
+        if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix) {
+            self.ix += 1;
+            self.nest += 1;
+            self.old_nest += 1;
+            if old.body == body {
+                self.mutation.skip(1);
+            } else {
+                let key = old.key;
+                let id = old.id;
+                let item = Item { key, id, body };
+                self.mutation.update_one(Slot::Begin(item));
+            }
+        } else {
+            panic!("begin_update called without existing element");
         }
     }
 

@@ -5,8 +5,8 @@ use druid::widget::prelude::*;
 use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
-use crate::flex::Flex;
 use crate::view;
+use crate::widget::Flex;
 use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
@@ -140,14 +140,14 @@ impl AnyWidget {
                 widget.mutate_update(ctx, None, mut_iter);
                 widget
             }
-            Payload::State(_) | Payload::Future(..) => {
+            Payload::State(_) | Payload::Future(..) | Payload::Placeholder => {
                 // Here we assume that the state node has exactly one
                 // child. Not awesome but it simplifies prototyping.
                 if let Some(MutIterItem::Insert(id, body, iter)) = mut_iter.next() {
                     let child = Self::mutate_insert(ctx, id, body, iter);
                     AnyWidget::Passthrough(Box::new(child))
                 } else {
-                    panic!("state node expected child");
+                    panic!("passthrough node expected child");
                 }
             }
         }

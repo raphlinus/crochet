@@ -112,7 +112,7 @@ impl View for Row {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        let row = crate::flex::Flex::row();
+        let row = crate::widget::Flex::row();
         AnyWidget::Flex(row)
     }
 }
@@ -144,7 +144,43 @@ impl View for Column {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        let column = crate::flex::Flex::column();
+        let column = crate::widget::Flex::column();
         AnyWidget::Flex(column)
     }
 }
+
+// TODO: this is commented out because the widget is not written yet.
+/*
+/// A wrapper for detecting click gestures.
+#[derive(Debug)]
+pub struct Clicked;
+
+impl Clicked {
+    pub fn new() -> Clicked {
+        Clicked
+    }
+
+    #[track_caller]
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx)) -> bool {
+        let id = cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        cx.app_data.dequeue_action(id).is_some()
+    }
+}
+
+impl View for Clicked {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(_other) = other.as_any().downcast_ref::<Self>() {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let clicked = crate::widget::Clicked::new();
+        AnyWidget::Clicked(clicked)
+    }
+}
+*/

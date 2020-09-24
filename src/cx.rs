@@ -11,7 +11,7 @@ use druid::{ExtEventSink, SingleUse, Target};
 use async_std::future::Future;
 
 use crate::any_widget::DruidAppData;
-#[cfg(feature="async-std")]
+#[cfg(feature = "async-std")]
 use crate::app_holder::ASYNC;
 use crate::id::Id;
 use crate::state::State;
@@ -71,10 +71,10 @@ impl<'a> Cx<'a> {
     /// This method is expected to be called mostly by the `build`
     /// methods on `View` implementors.
     ///
-    /// The API will change to return a child cx.
-    pub fn begin_view(&mut self, view: Box<dyn View>, loc: &'static Location) {
+    /// The API may change to return a child cx.
+    pub fn begin_view(&mut self, view: Box<dyn View>, loc: &'static Location) -> Id {
         let body = Payload::View(view);
-        self.mut_cursor.begin_loc(body, loc);
+        self.mut_cursor.begin_loc(body, loc)
     }
 
     /// Traverse into a subtree only if the data has changed.
@@ -109,10 +109,7 @@ impl<'a> Cx<'a> {
                 (Some(Payload::State(Box::new(data))), true)
             }
         });
-        let actions = self
-            .mut_cursor
-            .descendant_ids()
-            .any(|id| self.app_data.has_action(id));
+        let actions = self.has_action();
         let result = if changed || actions {
             Some(f(self))
         } else {
@@ -157,17 +154,26 @@ impl<'a> Cx<'a> {
                     } else {
                         // Types match, data not equal
                         let f_id = Id::new();
-                        (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
+                        (
+                            Some(Payload::Future(f_id, Box::new(data.clone()))),
+                            (id, f_id, true),
+                        )
                     }
                 } else {
                     // Downcast failed; this shouldn't happen
                     let f_id = Id::new();
-                    (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
+                    (
+                        Some(Payload::Future(f_id, Box::new(data.clone()))),
+                        (id, f_id, true),
+                    )
                 }
             } else {
                 // Probably inserting new state
                 let f_id = Id::new();
-                (Some(Payload::Future(f_id, Box::new(data.clone()))), (id, f_id, true))
+                (
+                    Some(Payload::Future(f_id, Box::new(data.clone()))),
+                    (id, f_id, true),
+                )
             }
         });
         if changed {
@@ -193,5 +199,45 @@ impl<'a> Cx<'a> {
         let result = f(self, future_result);
         self.mut_cursor.end();
         result
+    }
+
+    /// A low-level method to skip nodes.
+    ///
+    /// There must be `n` nodes in the tree to skip.
+    pub fn skip(&mut self, n: usize) {
+        for _ in 0..n {
+            self.mut_cursor.skip_one()
+        }
+    }
+
+    /// A low-level method to delete nodes.
+    ///
+    /// There must be `n` nodes in the tree to delete.
+    pub fn delete(&mut self, n: usize) {
+        for _ in 0..n {
+            self.mut_cursor.delete_one()
+        }
+    }
+
+    /// A low-level method to insert a subtree.
+    pub fn begin_insert(&mut self) {
+        self.mut_cursor.begin_insert(Payload::Placeholder);
+    }
+
+    /// A low-level method to update a subtree.
+    ///
+    /// There must be an existing placeholder node at this location in the tree.
+    pub fn begin_update(&mut self) {
+        self.mut_cursor.begin_update(Payload::Placeholder);
+    }
+
+    /// Report whether the current element has an action.
+    ///
+    /// For the future, this should probably change to an `Option<usize>`,
+    /// reporting how many elements to skip before the next action.
+    pub fn has_action(&self) -> bool {
+        self.mut_cursor
+            .descendant_ids()
+            .any(|id| self.app_data.has_action(id))
     }
 }

@@ -30,6 +30,19 @@ impl Key {
             seq_ix,
         }
     }
+
+    /// A null key, which will always equal itself.
+    ///
+    /// In the future, this might be implemented differently, as Key will
+    /// possibly expand to accommodate user-provided keys and callers from
+    /// different runtimes such as scripting languages.
+    pub fn null() -> Key {
+        #[track_caller]
+        fn null_caller() -> Caller {
+            Location::caller().into()
+        }
+        Key::new(null_caller(), 0)
+    }
 }
 
 impl Caller {

@@ -15,17 +15,19 @@
 mod any_widget;
 mod app_holder;
 mod cx;
-mod flex;
 mod id;
 mod key;
+mod list;
 mod state;
 mod tree;
 mod view;
+mod widget;
 
 pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
 pub use cx::Cx;
 pub use id::Id;
+pub use list::{List, ListData};
 pub use state::State;
 pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Payload, Tree};
 pub use view::{Button, Column, Label, Row};
