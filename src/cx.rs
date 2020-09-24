@@ -72,9 +72,11 @@ impl<'a> Cx<'a> {
     /// methods on `View` implementors.
     ///
     /// The API will change to return a child cx.
-    pub fn begin_view(&mut self, view: Box<dyn View>, loc: &'static Location) {
+    pub fn begin_view<'b>(&'b mut self, view: Box<dyn View>, loc: &'static Location) -> CxChild<'a, 'b>
+    {
         let body = Payload::View(view);
         self.mut_cursor.begin_loc(body, loc);
+        CxChild(self)
     }
 
     /// Traverse into a subtree only if the data has changed.
@@ -85,11 +87,10 @@ impl<'a> Cx<'a> {
     /// This method also traverses into the subtree if any of its action
     /// queues are non-empty.
     #[track_caller]
-    pub fn if_changed<T: PartialEq + State + 'static, U>(
-        &mut self,
+    pub fn changed<'b, T: PartialEq + State + 'static>(
+        &'b mut self,
         data: T,
-        f: impl FnOnce(&mut Cx) -> U,
-    ) -> Option<U> {
+    ) -> Option<CxChild<'a, 'b>> {
         let key = self.mut_cursor.key_from_loc(Location::caller());
         let changed = self.mut_cursor.begin_core(key, |_id, old_body| {
             if let Some(Payload::State(old_data)) = old_body {
@@ -113,16 +114,15 @@ impl<'a> Cx<'a> {
             .mut_cursor
             .descendant_ids()
             .any(|id| self.app_data.has_action(id));
-        let result = if changed || actions {
-            Some(f(self))
+        if changed || actions {
+            Some(CxChild(self))
         } else {
             // TODO: here's a place that needs work if we relax the requirement
             // of exactly one child node.
             self.mut_cursor.skip_one();
+            self.end();
             None
-        };
-        self.mut_cursor.end();
-        result
+        }
     }
 
     /// Spawn a future when the data changes.
@@ -135,12 +135,11 @@ impl<'a> Cx<'a> {
     /// callback.
     #[cfg(feature = "async-std")]
     #[track_caller]
-    pub fn use_future<T, U, V, F, FC>(
-        &mut self,
+    pub fn use_future<'b, T, U, F, FC>(
+        &'b mut self,
         data: &T,
         future_cb: FC,
-        f: impl FnOnce(&mut Cx, Option<&U>) -> V,
-    ) -> V
+    ) -> (CxChild<'a, 'b>, Option<&U>)
     where
         T: State + PartialEq + Clone + Sync + 'static,
         FC: FnOnce(&T) -> F,
@@ -190,8 +189,27 @@ impl<'a> Cx<'a> {
             .resolved_futures
             .get(&f_id)
             .and_then(|result| result.as_any().downcast_ref());
-        let result = f(self, future_result);
-        self.mut_cursor.end();
-        result
+        (CxChild(self), future_result)
+    }
+}
+
+pub struct CxChild<'a, 'b>(&'b mut Cx<'a>);
+
+impl<'a, 'b> std::ops::Deref for CxChild<'a, 'b> {
+    type Target = &'b mut Cx<'a>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for CxChild<'_, '_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for CxChild<'_, '_> {
+    fn drop(&mut self) {
+        self.0.end();
     }
 }

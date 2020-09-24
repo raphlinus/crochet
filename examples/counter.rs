@@ -21,18 +21,17 @@ impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
         // Note: the if_changed block here is not really necessary, but it
         // helps test it out.
-        cx.if_changed(self.count, |cx| {
+        if let Some(mut cx) = cx.changed(self.count) {
             println!("traversing into if_changed block");
-            Column::new().build(cx, |cx| {
-                Label::new(format!("current count: {}", self.count)).build(cx);
-                if Button::new("Increment").build(cx) {
-                    self.count += 1;
-                }
-                if self.count > 3 && self.count < 6 {
-                    Label::new("You did it!").build(cx);
-                }
-            });
-        });
+            let mut cx = Column::new().build(&mut cx);
+            Label::new(format!("current count: {}", self.count)).build(&mut cx);
+            if Button::new("Increment").build(&mut cx) {
+                self.count += 1;
+            }
+            if self.count > 3 && self.count < 6 {
+                Label::new("You did it!").build(&mut cx);
+            }
+        }
     }
 }
 

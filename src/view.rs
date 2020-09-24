@@ -6,7 +6,7 @@ use std::panic::Location;
 use druid::widget;
 
 use crate::any_widget::{Action, AnyWidget, DruidAppData};
-use crate::cx::Cx;
+use crate::cx::{Cx, CxChild};
 use crate::id::Id;
 
 pub trait View: AsAny + std::fmt::Debug {
@@ -94,11 +94,8 @@ impl Row {
     }
 
     #[track_caller]
-    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
-        cx.begin_view(Box::new(self), Location::caller());
-        let result = f(cx);
-        cx.end();
-        result
+    pub fn build<'a, 'b>(self, cx: &'b mut Cx<'a>) -> CxChild<'a, 'b> {
+        cx.begin_view(Box::new(self), Location::caller())
     }
 }
 
@@ -126,11 +123,8 @@ impl Column {
     }
 
     #[track_caller]
-    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
-        cx.begin_view(Box::new(self), Location::caller());
-        let result = f(cx);
-        cx.end();
-        result
+    pub fn build<'a, 'b>(self, cx: &'b mut Cx<'a>) -> CxChild<'a, 'b> {
+        cx.begin_view(Box::new(self), Location::caller())
     }
 }
 
