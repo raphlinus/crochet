@@ -53,6 +53,7 @@ The following items are of particular interest:
 * Experimenting with larger scale collections such as lists and a tree view.
 * Render objects other than widgets, for example tree view items.
 * Deeper exploration of async integration.
+* Scripting from other languages, including refining the Python module.
 
 But overall the goal is to gather evidence for whether this architecture is viable.
 
