@@ -25,6 +25,7 @@ mod widget;
 
 pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
+pub use crochet_macros::component;
 pub use cx::Cx;
 pub use id::Id;
 pub use list::{List, ListData};
