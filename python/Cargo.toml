@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies.druid]
 git = "https://github.com/linebender/druid"
-rev = "7c3646509fffb412d16f5746b8a6c11dbaacd602"
+rev = "7a3251b9b89df11af653189f2be04c7304861acf"
 
 [dependencies.pyo3]
 version = "0.12"
