@@ -1,4 +1,4 @@
-//! The classic counter example.
+//! A simple list view example.
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
