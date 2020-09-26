@@ -2,6 +2,10 @@
 name = "crochet-macros"
 version = "0.1.0"
 authors = ["Maan2003 <manmeetmann2003@gmail.com>"]
+license = "Apache-2.0"
+description = "macros for crochet"
+repository = "https://github.com/raphlinus/crochet"
+categories = ["gui"]
 edition = "2018"
 
 [lib]
