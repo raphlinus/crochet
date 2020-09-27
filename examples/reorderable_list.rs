@@ -20,31 +20,28 @@ struct MyAppLogic {
 
 impl MyAppLogic {
     fn run(&mut self, cx: &mut Cx) {
-        let mut swap_upwards_id = None;
-        let mut swap_downwards_id = None;
+        let mut rows_to_swap = None;
+        let data = &self.data;
         self.list_view
-            .run(cx, &self.data, |cx, _is_selected, id: Id, item| {
+            .run(cx, data, |cx, _is_selected, id: Id, item| {
                 Row::new().build(cx, |cx| {
                     if Button::new("Up").build(cx) {
-                        swap_upwards_id = Some(id);
+                        let this_ix = data.find_id(id).unwrap();
+                        if this_ix != 0 {
+                            rows_to_swap = Some((this_ix - 1, this_ix));
+                        }
                     }
                     Label::new(item.clone()).build(cx);
                     if Button::new("Down").build(cx) {
-                        swap_downwards_id = Some(id);
+                        let this_ix = data.find_id(id).unwrap();
+                        if this_ix < data.len() - 1 {
+                            rows_to_swap = Some((this_ix, this_ix + 1));
+                        }
                     }
                 });
             });
-        if let Some(id) = swap_upwards_id {
-            let this_ix = self.data.find_id(id).unwrap();
-            if this_ix > 0 {
-                self.data.swap(this_ix - 1, this_ix);
-            }
-        }
-        if let Some(id) = swap_downwards_id {
-            let this_ix = self.data.find_id(id).unwrap();
-            if this_ix < self.data.len() - 1 {
-                self.data.swap(this_ix, this_ix + 1);
-            }
+        if let Some((ix_a, ix_b)) = rows_to_swap {
+            self.data.rows_to_swap(ix_a, ix_b);
         }
     }
 }
