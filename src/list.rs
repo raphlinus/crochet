@@ -87,6 +87,10 @@ impl<T> ListData<T> {
         // A scalable version would not be O(n) here
         self.0.iter().position(|item| id == item.stable_id)
     }
+
+    pub fn swap(&mut self, ix_a: usize, ix_b: usize) {
+        self.0.swap(ix_a, ix_b);
+    }
 }
 
 impl List {
