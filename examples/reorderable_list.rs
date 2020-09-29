@@ -41,7 +41,7 @@ impl MyAppLogic {
                 });
             });
         if let Some((ix_a, ix_b)) = rows_to_swap {
-            self.data.rows_to_swap(ix_a, ix_b);
+            self.data.swap(ix_a, ix_b);
         }
     }
 }
