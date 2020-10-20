@@ -149,6 +149,40 @@ impl View for Column {
     }
 }
 
+#[derive(Debug)]
+pub struct TextBox(pub(crate) String);
+
+impl TextBox {
+    pub fn new(content: impl Into<String>) -> Self {
+        TextBox(content.into())
+    }
+
+    #[must_use]
+    #[track_caller]
+    pub fn build(self, cx: &mut Cx) -> Option<String> {
+        let id = cx.leaf_view(self, Location::caller());
+        cx.app_data.dequeue_action(id).map(|action| match action {
+            Action::TextChanged(text) => text,
+            _ => unreachable!("TextBox should never emit any Action other than TextChanged"),
+        })
+    }
+}
+
+impl View for TextBox {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.0 == other.0
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, id: Id) -> AnyWidget {
+        let text_box = crate::widget::TextBox::new(id, self.0.clone(), widget::TextBox::new());
+        AnyWidget::TextBox(text_box)
+    }
+}
+
 // TODO: this is commented out because the widget is not written yet.
 /*
 /// A wrapper for detecting click gestures.
