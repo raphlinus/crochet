@@ -6,7 +6,7 @@ use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
 use crate::view;
-use crate::widget::Flex;
+use crate::widget::{Flex, TextBox};
 use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
@@ -23,6 +23,7 @@ pub struct DruidAppData(Arc<HashMap<Id, Action>>);
 pub enum Action {
     Clicked,
     FutureResolved,
+    TextChanged(String),
 }
 
 /// A widget that backs any render element in the crochet tree.
@@ -36,6 +37,7 @@ pub enum AnyWidget {
     Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
     Label(Label<DruidAppData>),
     Flex(Flex),
+    TextBox(TextBox),
     /// A do-nothing container for another widget.
     ///
     /// Currently we use this for state nodes.
@@ -55,6 +57,7 @@ macro_rules! methods {
             AnyWidget::Button(w) => w.$method_name($($args),+),
             AnyWidget::Label(w) => w.$method_name($($args),+),
             AnyWidget::Flex(w) => w.$method_name($($args),+),
+            AnyWidget::TextBox(w) => w.$method_name($($args),+),
             AnyWidget::Passthrough(w) => w.$method_name($($args),+),
         }
     };
@@ -119,6 +122,14 @@ impl AnyWidget {
                 }
             }
             AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
+            AnyWidget::TextBox(t) => {
+                if let Some(Payload::View(view)) = body {
+                    if let Some(v) = view.as_any().downcast_ref::<view::TextBox>() {
+                        t.set_text(v.0.to_string());
+                        ctx.request_update();
+                    }
+                }
+            }
             AnyWidget::Passthrough(p) => {
                 if let Some(MutIterItem::Update(body, iter)) = mut_iter.next() {
                     p.mutate_update(ctx, body, iter);
