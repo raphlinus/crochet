@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::panic::Location;
 
-use druid::widget;
+use druid::{widget, KeyOrValue, Color, theme};
 
 use crate::any_widget::{Action, AnyWidget, DruidAppData};
 use crate::cx::Cx;
@@ -51,6 +51,51 @@ impl View for Label {
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
         AnyWidget::Label(widget::Label::new(self.0.to_string()))
+    }
+}
+
+#[derive(Debug)]
+pub struct Spinner(pub(crate) KeyOrValue<Color>);
+
+impl Spinner {
+    /// Create a spinner widget
+    pub fn new() -> Spinner {
+        Spinner(theme::LABEL_COLOR.into())
+    }
+
+    /// Builder-style method for setting the spinner's color.
+    ///
+    /// The argument can be either a `Color` or a [`Key<Color>`](druid::Key).
+    pub fn with_color(mut self, color: impl Into<KeyOrValue<Color>>) -> Self {
+        self.0 = color.into();
+        self
+    }
+
+    /// Set the spinner's color.
+    ///
+    /// The argument can be either a `Color` or a [`Key<Color>`](druid::Key).
+    pub fn set_color(&mut self, color: impl Into<KeyOrValue<Color>>) {
+        self.0 = color.into();
+    }
+
+    #[track_caller]
+    pub fn build(self, cx: &mut Cx) {
+        cx.leaf_view(self, Location::caller());
+    }
+}
+
+impl View for Spinner {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.0 == other.0
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let spinner = widget::Spinner::new().with_color(self.0.clone());
+        AnyWidget::Spinner(spinner)
     }
 }
 

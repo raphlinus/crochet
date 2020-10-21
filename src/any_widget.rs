@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use druid::widget::prelude::*;
-use druid::widget::{Button, Click, ControllerHost, Label};
+use druid::widget::{Button, Click, ControllerHost, Label, Spinner};
 use druid::Data;
 
 use crate::view;
@@ -36,6 +36,7 @@ pub enum Action {
 pub enum AnyWidget {
     Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
     Label(Label<DruidAppData>),
+    Spinner(Spinner),
     Flex(Flex),
     TextBox(TextBox),
     /// A do-nothing container for another widget.
@@ -56,6 +57,7 @@ macro_rules! methods {
         match $self {
             AnyWidget::Button(w) => w.$method_name($($args),+),
             AnyWidget::Label(w) => w.$method_name($($args),+),
+            AnyWidget::Spinner(w) => w.$method_name($($args),+),
             AnyWidget::Flex(w) => w.$method_name($($args),+),
             AnyWidget::TextBox(w) => w.$method_name($($args),+),
             AnyWidget::Passthrough(w) => w.$method_name($($args),+),
@@ -121,6 +123,7 @@ impl AnyWidget {
                     }
                 }
             }
+            AnyWidget::Spinner(_) => (),
             AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
             AnyWidget::TextBox(t) => {
                 if let Some(Payload::View(view)) = body {
