@@ -17,8 +17,13 @@ use crate::Cx;
 /// Obviously right now the implementation is super-simple and
 /// not efficient. But the idea is that a similar interface might
 /// support some fancy incremental implementation.
-#[derive(Default)]
 pub struct ListData<T>(Vec<ListItem<T>>);
+
+impl<T> Default for ListData<T> {
+    fn default() -> Self {
+        ListData(Vec::new())
+    }
+}
 
 struct ListItem<T> {
     stable_id: Id,
