@@ -23,6 +23,8 @@ mod tree;
 mod view;
 mod widget;
 
+pub mod react_comp;
+
 pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;
 pub use cx::Cx;
