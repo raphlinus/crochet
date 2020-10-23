@@ -10,8 +10,11 @@ use std::panic::Location;
 // Add VirtualDom::DomRef associated type
 // Implement ExplicitState for events
 
-pub trait VirtualDom {
+// TODO - box?
+
+pub trait VirtualDom<ExplicitState> {
     type Event;
+    // TODO - rename to internal state
     type State;
 
     // update_value is intended to enable memoize-style HOC
@@ -25,19 +28,46 @@ pub trait VirtualDom {
 
     fn apply_diff(&self, other: &Self, prev_state: Self::State, cx: &mut Cx) -> Self::State;
 
-    fn process_event(&self, state: &mut Self::State, cx: &mut Cx) -> Option<Self::Event>;
+    fn process_event(&self, explicit_state: &mut ExplicitState, state: &mut Self::State, cx: &mut Cx) -> Option<Self::Event>;
 }
 
 
 #[derive(Debug, PartialEq)]
-pub enum VDomLeaf {
-    Button(String),
-    Label(String),
+pub struct VDomLabel<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
+
+impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabel<ExplicitState> {
+    type Event = ();
+    type State = Id;
+
+    fn update_value(&mut self, other: Self) {
+        *self = other;
+    }
+
+    #[track_caller]
+    fn init_tree(&self, cx: &mut Cx) -> Id {
+        let text = &self.0;
+        cx.leaf_view(crate::Label(text.clone()), Location::caller())
+    }
+
+    #[track_caller]
+    fn apply_diff(&self, _other: &Self, _prev_state: Id, cx: &mut Cx) -> Id {
+        let text = &self.0;
+        cx.leaf_view(crate::Label(text.clone()), Location::caller())
+    }
+
+    fn process_event(&self, _explicit_state: &mut ExplicitState, _state: &mut Id, _cx: &mut Cx) -> Option<()> {
+        None
+    }
 }
+
+
+
+#[derive(Debug, PartialEq)]
+pub struct VDomButton<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
 
 pub struct ButtonPressed();
 
-impl VirtualDom for VDomLeaf {
+impl<ExplicitState> VirtualDom<ExplicitState> for VDomButton<ExplicitState> {
     type Event = ButtonPressed;
     type State = Id;
 
@@ -47,35 +77,23 @@ impl VirtualDom for VDomLeaf {
 
     #[track_caller]
     fn init_tree(&self, cx: &mut Cx) -> Id {
-        match self {
-            VDomLeaf::Button(text) => {
-                cx.leaf_view(crate::Button(text.clone()), Location::caller())
-            },
-            VDomLeaf::Label(text) => {
-                cx.leaf_view(crate::Label(text.clone()), Location::caller())
-            },
-        }
+        let text = &self.0;
+        cx.leaf_view(crate::Button(text.clone()), Location::caller())
     }
 
     #[track_caller]
     fn apply_diff(&self, other: &Self, prev_state: Id, cx: &mut Cx) -> Id {
-        if false && &self == &other {
+        if false && &self.0 == &other.0 {
             cx.skip(1);
             prev_state
         }
         else {
-            match self {
-                VDomLeaf::Button(text) => {
-                    cx.leaf_view(crate::Button(text.clone()), Location::caller())
-                },
-                VDomLeaf::Label(text) => {
-                    cx.leaf_view(crate::Label(text.clone()), Location::caller())
-                },
-            }
+            let text = &self.0;
+            cx.leaf_view(crate::Button(text.clone()), Location::caller())
         }
     }
 
-    fn process_event(&self, state: &mut Id, cx: &mut Cx) -> Option<ButtonPressed> {
+    fn process_event(&self, _explicit_state: &mut ExplicitState, state: &mut Id, cx: &mut Cx) -> Option<ButtonPressed> {
         let id = *state;
         if cx.app_data.dequeue_action(id).is_some() {
             Some(ButtonPressed())
@@ -88,31 +106,38 @@ impl VirtualDom for VDomLeaf {
 
 
 pub struct ComponentTuple<
-    C0 : VirtualDom,
-    C1 : VirtualDom,
-    C2 : VirtualDom,
-    C3 : VirtualDom,
->(pub C0, pub C1, pub C2, pub C3);
+    C0 : VirtualDom<ExplicitState>,
+    C1 : VirtualDom<ExplicitState>,
+    C2 : VirtualDom<ExplicitState>,
+    C3 : VirtualDom<ExplicitState>,
+    ExplicitState,
+>(pub C0, pub C1, pub C2, pub C3, pub std::marker::PhantomData<ExplicitState>);
 
 pub enum EventEnum<
-    C0 : VirtualDom,
-    C1 : VirtualDom,
-    C2 : VirtualDom,
-    C3 : VirtualDom,
+    T0,
+    T1,
+    T2,
+    T3,
 > {
-  E0(C0::Event),
-  E1(C1::Event),
-  E2(C2::Event),
-  E3(C3::Event),
+  E0(T0),
+  E1(T1),
+  E2(T2),
+  E3(T3),
 }
 
 impl<
-    C0 : VirtualDom,
-    C1 : VirtualDom,
-    C2 : VirtualDom,
-    C3 : VirtualDom,
-> VirtualDom for ComponentTuple<C0, C1, C2, C3> {
-    type Event = EventEnum<C0, C1, C2, C3>;
+    C0 : VirtualDom<ExplicitState>,
+    C1 : VirtualDom<ExplicitState>,
+    C2 : VirtualDom<ExplicitState>,
+    C3 : VirtualDom<ExplicitState>,
+    ExplicitState,
+> VirtualDom<ExplicitState> for ComponentTuple<C0, C1, C2, C3, ExplicitState> {
+    type Event = EventEnum<
+        C0::Event,
+        C1::Event,
+        C2::Event,
+        C3::Event,
+    >;
     type State = (
         C0::State,
         C1::State,
@@ -144,11 +169,11 @@ impl<
         )
     }
 
-    fn process_event(&self, state: &mut Self::State, cx: &mut Cx) -> Option<Self::Event> {
-        let event0 = self.0.process_event(&mut state.0, cx).map(|event| EventEnum::E0(event));
-        let event1 = self.1.process_event(&mut state.1, cx).map(|event| EventEnum::E1(event));
-        let event2 = self.2.process_event(&mut state.2, cx).map(|event| EventEnum::E2(event));
-        let event3 = self.3.process_event(&mut state.3, cx).map(|event| EventEnum::E3(event));
+    fn process_event(&self, explicit_state: &mut ExplicitState, state: &mut Self::State, cx: &mut Cx) -> Option<Self::Event> {
+        let event0 = self.0.process_event(explicit_state, &mut state.0, cx).map(|event| EventEnum::E0(event));
+        let event1 = self.1.process_event(explicit_state, &mut state.1, cx).map(|event| EventEnum::E1(event));
+        let event2 = self.2.process_event(explicit_state, &mut state.2, cx).map(|event| EventEnum::E2(event));
+        let event3 = self.3.process_event(explicit_state, &mut state.3, cx).map(|event| EventEnum::E3(event));
 
         // FIXME
         event0.or(event1).or(event2).or(event3)
@@ -159,9 +184,9 @@ impl<
 // Instead of doing multiple implementations of TupleComponent for different tuple sizes,
 // I'm being lazy and doing one implem for a huge tuple, and stuffing it with EmptyComponent
 // when using it. It's *a lot* easier.
-pub struct EmptyComponent();
+pub struct EmptyComponent<ExplicitState>(pub std::marker::PhantomData<ExplicitState>);
 
-impl VirtualDom for EmptyComponent {
+impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponent<ExplicitState> {
     type Event = ();
     type State = ();
 
@@ -173,17 +198,18 @@ impl VirtualDom for EmptyComponent {
     #[track_caller]
     fn apply_diff(&self, _other: &Self, _prev_state: (), _cx: &mut Cx) -> () {}
 
-    fn process_event(&self, _state: &mut (), _cx: &mut Cx) -> Option<()> {
+    fn process_event(&self, _explicit_state: &mut ExplicitState, _state: &mut (), _cx: &mut Cx) -> Option<()> {
         return None;
     }
 }
 
 
-pub struct ComponentList<Comp : VirtualDom> {
-    pub components: Vec<(String, Comp)>
+pub struct ComponentList<Comp : VirtualDom<ExplicitState>, ExplicitState> {
+    pub components: Vec<(String, Comp)>,
+    pub _expl_state: std::marker::PhantomData<ExplicitState>,
 }
 
-impl<Comp : VirtualDom> ComponentList<Comp> {
+impl<Comp : VirtualDom<ExplicitState>, ExplicitState> ComponentList<Comp, ExplicitState> {
     // We use separate functions so that crochet correctly identifies that update_value and
     // init_tree operate on the same value; it dectects this through #[track_caller]
     fn my_begin(&self, cx: &mut Cx) {
@@ -195,7 +221,7 @@ impl<Comp : VirtualDom> ComponentList<Comp> {
     }
 }
 
-impl<Comp : VirtualDom> VirtualDom for ComponentList<Comp> {
+impl<Comp : VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState> for ComponentList<Comp, ExplicitState> {
     type Event = (i32, Comp::Event);
     type State = Vec<Comp::State>;
 
@@ -264,11 +290,11 @@ impl<Comp : VirtualDom> VirtualDom for ComponentList<Comp> {
         updated_state
     }
 
-    fn process_event(&self, state: &mut Self::State, cx: &mut Cx) -> Option<(i32, Comp::Event)> {
+    fn process_event(&self, explicit_state: &mut ExplicitState, state: &mut Self::State, cx: &mut Cx) -> Option<(i32, Comp::Event)> {
         for (i, comp_data) in self.components.iter().zip(state).enumerate() {
             let (_key, comp) = comp_data.0;
             let comp_state = comp_data.1;
-            if let Some(event) = comp.process_event(comp_state, cx) {
+            if let Some(event) = comp.process_event(explicit_state, comp_state, cx) {
                 // BAAAAAD
                 return Some((i as i32, event));
             }
@@ -278,24 +304,29 @@ impl<Comp : VirtualDom> VirtualDom for ComponentList<Comp> {
 }
 
 
-pub struct ReactComponent<Props, VDom : VirtualDom, Cb> where Cb : Fn(&(), &Props) -> VDom {
+pub struct ReactComponent<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> where
+    Cb : Fn(&ExplicitState, &Props) -> VDom,
+{
+    pub state: ExplicitState,
     pub root_component: Cb,
     pub prev_vdom: Option<VDom>,
     pub prev_vdom_state: Option<VDom::State>,
     pub _props: std::marker::PhantomData<Props>,
 }
 
-impl<Props, VDom : VirtualDom, Cb> ReactComponent<Props, VDom, Cb> where Cb : Fn(&(), &Props) -> VDom {
+impl<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> ReactComponent<ExplicitState, Props, VDom, Cb> where
+    Cb : Fn(&ExplicitState, &Props) -> VDom
+{
     #[track_caller]
-    pub fn run(&mut self, cx: &mut Cx, props: &mut Props, callback: impl Fn(&VDom::Event, &mut Props)) {
-        let vdom = (self.root_component)(&(), props);
+    pub fn run(&mut self, cx: &mut Cx, props: &Props, callback: impl Fn(&VDom::Event, &mut ExplicitState)) {
+        let vdom = (self.root_component)(&self.state, props);
 
         if let Some(prev_vdom) = self.prev_vdom.as_mut() {
             let prev_vdom_state = self.prev_vdom_state.take().unwrap();
             let mut vdom_state = vdom.apply_diff(prev_vdom, prev_vdom_state, cx);
 
-            if let Some(event) = vdom.process_event(&mut vdom_state, cx) {
-                callback(&event, props);
+            if let Some(event) = vdom.process_event(&mut self.state, &mut vdom_state, cx) {
+                callback(&event, &mut self.state);
             }
 
             prev_vdom.update_value(vdom);
