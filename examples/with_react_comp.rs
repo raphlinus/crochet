@@ -1,7 +1,6 @@
-#[allow(unused_imports)]
-use crochet::react_comp::{ReactComponent, ComponentTuple, ComponentList, VDomLabel, VDomButton, VirtualDom, EmptyComponent};
-use crochet::react_comp::{ButtonPressed, EventEnum};
-use crochet::react_builder::{ComponentBuilder, ComponentTupleBuilder, ComponentListBuilder, VDomLabelBuilder, VDomButtonBuilder, VirtualDomBuilder, WithEventBuilder};
+use crochet::react_comp::{VirtualDom, ButtonPressed, EventEnum};
+use crochet::react_builder::{VirtualDomBuilder, ReactApp, ComponentTuple, ComponentList, VDomLabel, VDomButton, ComponentBuilder};
+use crochet::react_ext::VirtualDomBuilderExt;
 
 #[allow(unused_imports)]
 use crochet::{AppHolder, Button, Cx, DruidAppData, Id, Label, List, ListData, Row};
@@ -30,11 +29,11 @@ struct RowProps<'a> {
 
 fn list_row(_state: &u16, props: RowProps) -> impl VirtualDom<u16, Event = RowEvent>
 {
-    ComponentTupleBuilder(
-        VDomButtonBuilder(VDomButton("Select".into(), Default::default())),
-        VDomLabelBuilder(VDomLabel(if props.is_selected { "[*]".into() } else { "[ ]".into() }, Default::default())),
-        VDomLabelBuilder(VDomLabel(props.list_item.text.clone(), Default::default())),
-        VDomLabelBuilder(VDomLabel(props.list_item.id.to_string(), Default::default())),
+    ComponentTuple(
+        VDomButton::new("Select"),
+        VDomLabel::new(if props.is_selected { "[*]" } else { "[ ]" }),
+        VDomLabel::new(props.list_item.text.clone()),
+        VDomLabel::new(props.list_item.id.to_string()),
         Default::default(),
     ).build()
 }
@@ -48,9 +47,21 @@ type AppEvent = EventEnum<
 >;
 
 fn some_component(state: &AppState, _props: &()) -> impl VirtualDom<AppState, Event = AppEvent> {
-    let button_create = VDomButton("Create".into(), Default::default());
-    let button_delete = VDomButton("Delete".into(), Default::default());
-    let button_update = VDomButton("Update".into(), Default::default());
+    let button_create = VDomButton::new("Create").with_event(|state: &mut AppState, _| {
+        state.data.push(ListItem { text: "new item".to_string(), id: state.next_id });
+        state.next_id += 1;
+    });
+    let button_delete = VDomButton::new("Delete").with_event(|state: &mut AppState, _| {
+        if let Some(row) = state.selected_row {
+            state.data.remove(row as usize);
+            state.selected_row = None;
+        }
+    });
+    let button_update = VDomButton::new("Update").with_event(|state: &mut AppState, _| {
+        if let Some(row) = state.selected_row {
+            state.data[row as usize].text = "updated".to_string();
+        }
+    });
 
     let list_view_data = state.data.iter().enumerate().map(|(i, list_item)| {
         let row_props = RowProps {
@@ -58,55 +69,22 @@ fn some_component(state: &AppState, _props: &()) -> impl VirtualDom<AppState, Ev
             is_selected: i as i32 == state.selected_row.unwrap_or(-1),
         };
 
-        let comp_builder = ComponentBuilder {
-            component: list_row,
-            props: row_props,
-            _vdom: Default::default(),
-            _state: Default::default(),
-            _expl_state: Default::default(),
-        };
+        let comp_builder = ComponentBuilder::prepare(list_row, row_props);
 
         (list_item.id.to_string(), comp_builder)
     }).collect();
-    let list_view = WithEventBuilder {
-        component: ComponentListBuilder {
-            components: list_view_data, _state: Default::default()
-        },
-        callback: |state: &mut AppState, event| {
-            state.selected_row = Some(event.0);
-        },
-        _state: Default::default(),
+    let list_view = ComponentList {
+        components: list_view_data, _state: Default::default()
     };
 
-    ComponentTupleBuilder(
-        WithEventBuilder {
-            component: VDomButtonBuilder(button_create),
-            callback: |state: &mut AppState, _| {
-                state.data.push(ListItem { text: "new item".to_string(), id: state.next_id });
-                state.next_id += 1;
-            },
-            _state: Default::default(),
-        },
-        WithEventBuilder {
-            component: VDomButtonBuilder(button_delete),
-            callback: |state: &mut AppState, _| {
-                if let Some(row) = state.selected_row {
-                    state.data.remove(row as usize);
-                    state.selected_row = None;
-                }
-            },
-            _state: Default::default(),
-        },
-        WithEventBuilder {
-            component: VDomButtonBuilder(button_update),
-            callback: |state: &mut AppState, _| {
-                if let Some(row) = state.selected_row {
-                    state.data[row as usize].text = "updated".to_string();
-                }
-            },
-            _state: Default::default(),
-        },
-        list_view,
+    ComponentTuple(
+        button_create,
+        button_delete,
+        button_update,
+        list_view.with_event(|state: &mut AppState, event| {
+            let i = event.0;
+            state.selected_row = Some(i);
+        }),
         Default::default(),
     ).build()
 }
@@ -119,7 +97,7 @@ fn ui_builder() -> impl Widget<DruidAppData> {
         next_id: 8,
     };
 
-    let mut react_component = ReactComponent::<AppState, (), _, _> {
+    let mut react_component = ReactApp::<AppState, (), _, _> {
         state,
         root_component: &some_component,
         prev_vdom: None,

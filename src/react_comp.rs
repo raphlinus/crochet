@@ -33,9 +33,9 @@ pub trait VirtualDom<ExplicitState> {
 
 
 #[derive(Debug, PartialEq)]
-pub struct VDomLabel<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
+pub struct VDomLabelTarget<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
 
-impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabel<ExplicitState> {
+impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabelTarget<ExplicitState> {
     type Event = ();
     type State = Id;
 
@@ -63,11 +63,11 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabel<ExplicitState> {
 
 
 #[derive(Debug, PartialEq)]
-pub struct VDomButton<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
+pub struct VDomButtonTarget<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
 
 pub struct ButtonPressed();
 
-impl<ExplicitState> VirtualDom<ExplicitState> for VDomButton<ExplicitState> {
+impl<ExplicitState> VirtualDom<ExplicitState> for VDomButtonTarget<ExplicitState> {
     type Event = ButtonPressed;
     type State = Id;
 
@@ -105,7 +105,7 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomButton<ExplicitState> {
 }
 
 
-pub struct ComponentTuple<
+pub struct ComponentTupleTarget<
     C0 : VirtualDom<ExplicitState>,
     C1 : VirtualDom<ExplicitState>,
     C2 : VirtualDom<ExplicitState>,
@@ -131,7 +131,7 @@ impl<
     C2 : VirtualDom<ExplicitState>,
     C3 : VirtualDom<ExplicitState>,
     ExplicitState,
-> VirtualDom<ExplicitState> for ComponentTuple<C0, C1, C2, C3, ExplicitState> {
+> VirtualDom<ExplicitState> for ComponentTupleTarget<C0, C1, C2, C3, ExplicitState> {
     type Event = EventEnum<
         C0::Event,
         C1::Event,
@@ -184,9 +184,9 @@ impl<
 // Instead of doing multiple implementations of TupleComponent for different tuple sizes,
 // I'm being lazy and doing one implem for a huge tuple, and stuffing it with EmptyComponent
 // when using it. It's *a lot* easier.
-pub struct EmptyComponent<ExplicitState>(pub std::marker::PhantomData<ExplicitState>);
+pub struct EmptyComponentTarget<ExplicitState>(pub std::marker::PhantomData<ExplicitState>);
 
-impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponent<ExplicitState> {
+impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponentTarget<ExplicitState> {
     type Event = ();
     type State = ();
 
@@ -204,12 +204,12 @@ impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponent<ExplicitState> 
 }
 
 
-pub struct ComponentList<Comp : VirtualDom<ExplicitState>, ExplicitState> {
+pub struct ComponentListTarget<Comp : VirtualDom<ExplicitState>, ExplicitState> {
     pub components: Vec<(String, Comp)>,
     pub _expl_state: std::marker::PhantomData<ExplicitState>,
 }
 
-impl<Comp : VirtualDom<ExplicitState>, ExplicitState> ComponentList<Comp, ExplicitState> {
+impl<Comp : VirtualDom<ExplicitState>, ExplicitState> ComponentListTarget<Comp, ExplicitState> {
     // We use separate functions so that crochet correctly identifies that update_value and
     // init_tree operate on the same value; it dectects this through #[track_caller]
     fn my_begin(&self, cx: &mut Cx) {
@@ -221,7 +221,7 @@ impl<Comp : VirtualDom<ExplicitState>, ExplicitState> ComponentList<Comp, Explic
     }
 }
 
-impl<Comp : VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState> for ComponentList<Comp, ExplicitState> {
+impl<Comp : VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState> for ComponentListTarget<Comp, ExplicitState> {
     type Event = (i32, Comp::Event);
     type State = Vec<Comp::State>;
 
@@ -300,42 +300,5 @@ impl<Comp : VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState> 
             }
         }
         return None;
-    }
-}
-
-
-pub struct ReactComponent<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> where
-    Cb : Fn(&ExplicitState, &Props) -> VDom,
-{
-    pub state: ExplicitState,
-    pub root_component: Cb,
-    pub prev_vdom: Option<VDom>,
-    pub prev_vdom_state: Option<VDom::State>,
-    pub _props: std::marker::PhantomData<Props>,
-}
-
-impl<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> ReactComponent<ExplicitState, Props, VDom, Cb> where
-    Cb : Fn(&ExplicitState, &Props) -> VDom
-{
-    #[track_caller]
-    pub fn run(&mut self, cx: &mut Cx, props: &Props, callback: impl Fn(&VDom::Event, &mut ExplicitState)) {
-        let vdom = (self.root_component)(&self.state, props);
-
-        if let Some(prev_vdom) = self.prev_vdom.as_mut() {
-            let prev_vdom_state = self.prev_vdom_state.take().unwrap();
-            let mut vdom_state = vdom.apply_diff(prev_vdom, prev_vdom_state, cx);
-
-            if let Some(event) = vdom.process_event(&mut self.state, &mut vdom_state, cx) {
-                callback(&event, &mut self.state);
-            }
-
-            prev_vdom.update_value(vdom);
-            self.prev_vdom_state = Some(vdom_state);
-        }
-        else {
-            let vdom_state = vdom.init_tree(cx);
-            self.prev_vdom = Some(vdom);
-            self.prev_vdom_state = Some(vdom_state);
-        }
     }
 }

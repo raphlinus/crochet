@@ -3,7 +3,15 @@
 use crate::{Button, Cx, DruidAppData, Id, Label, List, ListData, Row};
 
 #[allow(unused_imports)]
-use crate::react_comp::{ReactComponent, ComponentTuple, ComponentList, VDomLabel, VDomButton, VirtualDom, EmptyComponent};
+use crate::react_comp::{
+    VirtualDom,
+    VDomLabelTarget,
+    VDomButtonTarget,
+    EmptyComponentTarget,
+    ComponentTupleTarget,
+    ComponentListTarget,
+};
+
 
 pub trait VirtualDomBuilder<ExplicitState> {
     type Target : VirtualDom<ExplicitState>;
@@ -12,27 +20,39 @@ pub trait VirtualDomBuilder<ExplicitState> {
 }
 
 
-pub struct VDomLabelBuilder<ExplicitState>(pub VDomLabel<ExplicitState>);
-pub struct VDomButtonBuilder<ExplicitState>(pub VDomButton<ExplicitState>);
+pub struct VDomLabel<ExplicitState>(pub VDomLabelTarget<ExplicitState>);
+pub struct VDomButton<ExplicitState>(pub VDomButtonTarget<ExplicitState>);
 
-impl<ExplicitState> VirtualDomBuilder<ExplicitState> for VDomLabelBuilder<ExplicitState> {
-    type Target = VDomLabel<ExplicitState>;
+impl<ExplicitState> VDomLabel<ExplicitState> {
+    pub fn new(text: impl Into<String>) -> VDomLabel<ExplicitState> {
+        VDomLabel(VDomLabelTarget(text.into(), Default::default()))
+    }
+}
 
-    fn build(self) -> VDomLabel<ExplicitState> {
+impl<ExplicitState> VDomButton<ExplicitState> {
+    pub fn new(text: impl Into<String>) -> VDomButton<ExplicitState> {
+        VDomButton(VDomButtonTarget(text.into(), Default::default()))
+    }
+}
+
+impl<ExplicitState> VirtualDomBuilder<ExplicitState> for VDomLabel<ExplicitState> {
+    type Target = VDomLabelTarget<ExplicitState>;
+
+    fn build(self) -> VDomLabelTarget<ExplicitState> {
         self.0
     }
 }
 
-impl<ExplicitState> VirtualDomBuilder<ExplicitState> for VDomButtonBuilder<ExplicitState> {
-    type Target = VDomButton<ExplicitState>;
+impl<ExplicitState> VirtualDomBuilder<ExplicitState> for VDomButton<ExplicitState> {
+    type Target = VDomButtonTarget<ExplicitState>;
 
-    fn build(self) -> VDomButton<ExplicitState> {
+    fn build(self) -> VDomButtonTarget<ExplicitState> {
         self.0
     }
 }
 
 
-pub struct ComponentTupleBuilder<
+pub struct ComponentTuple<
     C0 : VirtualDomBuilder<ExplicitState>,
     C1 : VirtualDomBuilder<ExplicitState>,
     C2 : VirtualDomBuilder<ExplicitState>,
@@ -46,8 +66,8 @@ impl<
     C1 : VirtualDomBuilder<ExplicitState>,
     C2 : VirtualDomBuilder<ExplicitState>,
     C3 : VirtualDomBuilder<ExplicitState>,
-> VirtualDomBuilder<ExplicitState> for ComponentTupleBuilder<C0, C1, C2, C3, ExplicitState> {
-    type Target = ComponentTuple<
+> VirtualDomBuilder<ExplicitState> for ComponentTuple<C0, C1, C2, C3, ExplicitState> {
+    type Target = ComponentTupleTarget<
         C0::Target,
         C1::Target,
         C2::Target,
@@ -56,7 +76,7 @@ impl<
     >;
 
     fn build(self) -> Self::Target {
-        ComponentTuple (
+        ComponentTupleTarget (
             self.0.build(),
             self.1.build(),
             self.2.build(),
@@ -67,26 +87,32 @@ impl<
 }
 
 
-pub struct EmptyComponentBuilder<ExplicitState = ()>(pub std::marker::PhantomData<ExplicitState>);
+pub struct EmptyComponent<ExplicitState = ()>(pub std::marker::PhantomData<ExplicitState>);
 
-impl<ExplicitState> VirtualDomBuilder<ExplicitState> for EmptyComponentBuilder<ExplicitState> {
-    type Target = EmptyComponent<ExplicitState>;
-    fn build(self) -> EmptyComponent<ExplicitState> {
-        EmptyComponent (Default::default())
+impl<ExplicitState> EmptyComponent<ExplicitState> {
+    pub fn new() -> EmptyComponent<ExplicitState> {
+        EmptyComponent(Default::default())
+    }
+}
+
+impl<ExplicitState> VirtualDomBuilder<ExplicitState> for EmptyComponent<ExplicitState> {
+    type Target = EmptyComponentTarget<ExplicitState>;
+    fn build(self) -> EmptyComponentTarget<ExplicitState> {
+        EmptyComponentTarget (Default::default())
     }
 }
 
 
-pub struct ComponentListBuilder<Comp : VirtualDomBuilder<ExplicitState>, ExplicitState = ()> {
+pub struct ComponentList<Comp : VirtualDomBuilder<ExplicitState>, ExplicitState = ()> {
     pub components: Vec<(String, Comp)>,
     pub _state: std::marker::PhantomData<ExplicitState>,
 }
 
-impl<ExplicitState, Comp : VirtualDomBuilder<ExplicitState>> VirtualDomBuilder<ExplicitState> for ComponentListBuilder<Comp, ExplicitState> {
-    type Target = ComponentList<Comp::Target, ExplicitState>;
+impl<ExplicitState, Comp : VirtualDomBuilder<ExplicitState>> VirtualDomBuilder<ExplicitState> for ComponentList<Comp, ExplicitState> {
+    type Target = ComponentListTarget<Comp::Target, ExplicitState>;
 
     fn build(self) -> Self::Target {
-        ComponentList {
+        ComponentListTarget {
             components: self.components.into_iter().map(|(key, comp)| {
                 // TODO - handle identity
                 (key, comp.build())
@@ -97,7 +123,7 @@ impl<ExplicitState, Comp : VirtualDomBuilder<ExplicitState>> VirtualDomBuilder<E
 }
 
 
-pub struct WithEvent<
+pub struct WithEventTarget<
     Comp : VirtualDom<ExplicitState>,
     Cb : Fn(&mut ExplicitState, &Comp::Event),
     ExplicitState,
@@ -111,7 +137,7 @@ impl <
     Comp : VirtualDom<ExplicitState>,
     Cb : Fn(&mut ExplicitState, &Comp::Event),
     ExplicitState,
-> VirtualDom<ExplicitState> for WithEvent< Comp, Cb, ExplicitState > {
+> VirtualDom<ExplicitState> for WithEventTarget< Comp, Cb, ExplicitState > {
     type Event = Comp::Event;
     type State = Comp::State;
 
@@ -139,7 +165,7 @@ impl <
 }
 
 
-pub struct WithEventBuilder<
+pub struct WithEvent<
     Comp : VirtualDomBuilder<ExplicitState>,
     Cb : Fn(&mut ExplicitState, &<Comp::Target as VirtualDom<ExplicitState>>::Event),
     ExplicitState = ()
@@ -153,11 +179,11 @@ impl <
     Comp : VirtualDomBuilder<ExplicitState>,
     ExplicitState,
     Cb : Fn(&mut ExplicitState, &<Comp::Target as VirtualDom<ExplicitState>>::Event),
-> VirtualDomBuilder<ExplicitState> for WithEventBuilder< Comp, Cb, ExplicitState > {
-    type Target = WithEvent< Comp::Target, Cb, ExplicitState >;
+> VirtualDomBuilder<ExplicitState> for WithEvent< Comp, Cb, ExplicitState > {
+    type Target = WithEventTarget< Comp::Target, Cb, ExplicitState >;
 
     fn build(self) -> Self::Target {
-        WithEvent {
+        WithEventTarget {
             component: self.component.build(),
             callback: self.callback,
             _state: Default::default(),
@@ -167,9 +193,9 @@ impl <
 }
 
 
-pub struct WithState<Comp : VirtualDom<InternalState>, InternalState : Default, ExplicitState>(Comp, std::marker::PhantomData<InternalState>, std::marker::PhantomData<ExplicitState>);
+pub struct WithStateTarget<Comp : VirtualDom<InternalState>, InternalState : Default, ExplicitState>(Comp, std::marker::PhantomData<InternalState>, std::marker::PhantomData<ExplicitState>);
 
-impl<Comp : VirtualDom<InternalState>, InternalState : Default, ExplicitState> VirtualDom<ExplicitState> for WithState<Comp, InternalState, ExplicitState> {
+impl<Comp : VirtualDom<InternalState>, InternalState : Default, ExplicitState> VirtualDom<ExplicitState> for WithStateTarget<Comp, InternalState, ExplicitState> {
     type Event = Comp::Event;
     type State = (Comp::State, InternalState);
 
@@ -208,10 +234,60 @@ pub struct ComponentBuilder<State : Default, Props, VDom : VirtualDom<State>, Cb
     pub _expl_state : std::marker::PhantomData<ExplicitState>,
 }
 
+impl<ExplicitState, State : Default, Props, VDom : VirtualDom<State>, Cb : Fn(&State, Props) -> VDom> ComponentBuilder<State, Props, VDom, Cb, ExplicitState> {
+    pub fn prepare(component: Cb, props: Props) -> ComponentBuilder<State, Props, VDom, Cb, ExplicitState> {
+        ComponentBuilder {
+            component,
+            props,
+            _vdom: Default::default(),
+            _state: Default::default(),
+            _expl_state: Default::default(),
+        }
+    }
+}
+
 impl<ExplicitState, State : Default, Props, VDom : VirtualDom<State>, Cb : Fn(&State, Props) -> VDom> VirtualDomBuilder<ExplicitState> for ComponentBuilder<State, Props, VDom, Cb, ExplicitState> {
-    type Target = WithState<VDom, State, ExplicitState>;
+    type Target = WithStateTarget<VDom, State, ExplicitState>;
 
     fn build(self) -> Self::Target {
-        WithState((self.component)(&State::default(), self.props), Default::default(), Default::default())
+        WithStateTarget((self.component)(&State::default(), self.props), Default::default(), Default::default())
+    }
+}
+
+
+
+pub struct ReactApp<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> where
+    Cb : Fn(&ExplicitState, &Props) -> VDom,
+{
+    pub state: ExplicitState,
+    pub root_component: Cb,
+    pub prev_vdom: Option<VDom>,
+    pub prev_vdom_state: Option<VDom::State>,
+    pub _props: std::marker::PhantomData<Props>,
+}
+
+impl<ExplicitState, Props, VDom : VirtualDom<ExplicitState>, Cb> ReactApp<ExplicitState, Props, VDom, Cb> where
+    Cb : Fn(&ExplicitState, &Props) -> VDom
+{
+    #[track_caller]
+    pub fn run(&mut self, cx: &mut Cx, props: &Props, callback: impl Fn(&VDom::Event, &mut ExplicitState)) {
+        let vdom = (self.root_component)(&self.state, props);
+
+        if let Some(prev_vdom) = self.prev_vdom.as_mut() {
+            let prev_vdom_state = self.prev_vdom_state.take().unwrap();
+            let mut vdom_state = vdom.apply_diff(prev_vdom, prev_vdom_state, cx);
+
+            if let Some(event) = vdom.process_event(&mut self.state, &mut vdom_state, cx) {
+                callback(&event, &mut self.state);
+            }
+
+            prev_vdom.update_value(vdom);
+            self.prev_vdom_state = Some(vdom_state);
+        }
+        else {
+            let vdom_state = vdom.init_tree(cx);
+            self.prev_vdom = Some(vdom);
+            self.prev_vdom_state = Some(vdom_state);
+        }
     }
 }
