@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use crochet::react_comp::{ReactComponent, ComponentTuple, ComponentList, VDomLeaf, VirtualDom, EmptyComponent};
 use crochet::react_comp::{ButtonPressed, EventEnum};
+use crochet::react_builder::{ComponentBuilder, ComponentTupleBuilder, ComponentListBuilder, VDomLeafBuilder, VirtualDomBuilder, WithState};
 
 #[allow(unused_imports)]
 use crochet::{AppHolder, Button, Cx, DruidAppData, Id, Label, List, ListData, Row};
@@ -21,12 +22,18 @@ struct Props {
 }
 
 
-fn list_row(list_item: &ListItem, is_selected: bool) -> ComponentTuple<VDomLeaf, VDomLeaf, VDomLeaf, VDomLeaf> {
+struct RowProps<'a> {
+    list_item: &'a ListItem,
+    is_selected: bool,
+}
+fn list_row(_state: &(), props: RowProps) ->
+    ComponentTuple<VDomLeaf, VDomLeaf, VDomLeaf, VDomLeaf>
+{
     ComponentTuple(
-        VDomLeaf::Button(Id::new(), "Select".into()),
-        VDomLeaf::Label(Id::new(), if is_selected { "[*]".into() } else { "[ ]".into() }),
-        VDomLeaf::Label(Id::new(), list_item.text.clone()),
-        VDomLeaf::Label(Id::new(), list_item.id.to_string()),
+        VDomLeaf::Button("Select".into()),
+        VDomLeaf::Label(if props.is_selected { "[*]".into() } else { "[ ]".into() }),
+        VDomLeaf::Label(props.list_item.text.clone()),
+        VDomLeaf::Label(props.list_item.id.to_string()),
     )
 }
 
@@ -34,26 +41,36 @@ type EventType = EventEnum<
     VDomLeaf,
     VDomLeaf,
     VDomLeaf,
-    ComponentList<ComponentTuple<VDomLeaf, VDomLeaf, VDomLeaf, VDomLeaf>>,
+    ComponentList<WithState<ComponentTuple<VDomLeaf, VDomLeaf, VDomLeaf, VDomLeaf>, ()>>,
 >;
 
-fn some_component(props: &Props) -> impl VirtualDom<Event = EventType> {
-    let button_create = VDomLeaf::Button(Id::new(), "Create".into());
-    let button_delete = VDomLeaf::Button(Id::new(), "Delete".into());
-    let button_update = VDomLeaf::Button(Id::new(), "Update".into());
+fn some_component(_state: &(), props: &Props) -> impl VirtualDom<Event = EventType> {
+    let button_create = VDomLeaf::Button("Create".into());
+    let button_delete = VDomLeaf::Button("Delete".into());
+    let button_update = VDomLeaf::Button("Update".into());
 
     let list_view_data = props.data.iter().enumerate().map(|(i, list_item)| {
-        let row = list_row(&list_item, i as i32 == props.selected_row.unwrap_or(-1));
-        (list_item.id.to_string(), row)
-    }).collect();
-    let list_view = ComponentList { components: list_view_data };
+        let row_props = RowProps {
+            list_item: &list_item,
+            is_selected: i as i32 == props.selected_row.unwrap_or(-1),
+        };
+        let comp_builder = ComponentBuilder {
+            component: list_row,
+            props: row_props,
+            _vdom: Default::default(),
+            _state: Default::default(),
+        };
 
-    ComponentTuple(
-        button_create,
-        button_delete,
-        button_update,
+        (list_item.id.to_string(), comp_builder)
+    }).collect();
+    let list_view = ComponentListBuilder { components: list_view_data };
+
+    ComponentTupleBuilder(
+        VDomLeafBuilder(button_create),
+        VDomLeafBuilder(button_delete),
+        VDomLeafBuilder(button_update),
         list_view,
-    )
+    ).build()
 }
 
 
@@ -62,6 +79,7 @@ fn ui_builder() -> impl Widget<DruidAppData> {
     let mut react_component = ReactComponent {
         root_component: &some_component,
         prev_vdom: None,
+        prev_vdom_state: None,
         _props: Default::default(),
     };
     let mut props = Props {
