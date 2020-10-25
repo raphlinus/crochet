@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Column, Cx, DruidAppData, Label, Padding, TextBox};
+use crochet::{AppHolder, Checkbox, Column, Cx, DruidAppData, Label, Padding, TextBox};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -15,6 +15,7 @@ fn main() -> Result<(), PlatformError> {
 fn ui_builder() -> impl Widget<DruidAppData> {
     let mut initial_state = HelloState {
         name: "World".to_string(),
+        german: false,
     };
 
     AppHolder::new(move |cx| initial_state.run(cx))
@@ -22,14 +23,23 @@ fn ui_builder() -> impl Widget<DruidAppData> {
 
 struct HelloState {
     name: String,
+    german: bool,
 }
 
 impl HelloState {
+    fn greeting(&self) -> &str {
+        if self.german {
+            "Guten Tag"
+        } else {
+            "Hello"
+        }
+    }
+
     fn name_label(&self) -> String {
         if self.name.is_empty() {
             "Hello anybody!?".to_string()
         } else {
-            format!("Hello {}!", self.name)
+            format!("{} {}!", self.greeting(), self.name)
         }
     }
 
@@ -41,6 +51,9 @@ impl HelloState {
                     if let Some(name) = TextBox::new(&self.name).build(cx) {
                         self.name = name;
                     }
+                });
+                Padding::new().top(5.0).build(cx, |cx| {
+                    self.german = Checkbox::new("greet in german", self.german).build(cx);
                 });
             });
         });
