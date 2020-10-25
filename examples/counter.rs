@@ -22,7 +22,7 @@ impl MyAppLogic {
         // Note: the if_changed block here is not really necessary, but it
         // helps test it out.
         cx.if_changed(self.count, |cx| {
-            //println!("traversing into if_changed block");
+            println!("traversing into if_changed block");
             Column::new().build(cx, |cx| {
                 Label::new(format!("current count: {}", self.count)).build(cx);
                 if Button::new("Increment").build(cx) {
@@ -31,7 +31,6 @@ impl MyAppLogic {
                 if self.count > 3 && self.count < 6 {
                     Padding::new().top(10.0).build(cx, |cx| {
                         Label::new("You did it!").build(cx);
-                        Label::new("Great!").build(cx);
                     });
                 }
             });
