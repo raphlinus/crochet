@@ -197,4 +197,8 @@ impl DruidAppData {
     pub(crate) fn has_action(&self, id: Id) -> bool {
         self.0.contains_key(&id)
     }
+
+    pub(crate) fn has_any_action(&self) -> bool {
+        !self.0.is_empty()
+    }
 }

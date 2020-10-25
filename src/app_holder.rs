@@ -57,6 +57,7 @@ impl AppHolder {
     /// This is probably good enough for a prototype, but will probably
     /// need more care for a real integration.
     fn run_app_logic(&mut self, ctx: &mut EventCtx, data: &mut DruidAppData) {
+        let needs_update = data.has_any_action();
         let event_sink = ctx.get_external_handle();
         let mut cx = Cx::new(&self.tree, data, &self.resolved_futures, &event_sink);
         (self.app_logic)(&mut cx);
@@ -64,6 +65,11 @@ impl AppHolder {
         let mut_iter = MutationIter::new(&self.tree, &mutation);
         self.child.widget_mut().mutate_update(ctx, None, mut_iter);
         self.tree.mutate(mutation);
+        // This will bring the ui up-to-date and avoid stale state.
+        // A better solution would be nice, but this is simple and seems to work.
+        if needs_update {
+            ctx.request_timer(std::time::Duration::from_secs(0));
+        }
     }
 }
 
