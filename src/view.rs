@@ -188,6 +188,12 @@ pub struct Padding {
     pub(crate) insets: druid::Insets,
 }
 
+impl<I: Into<druid::Insets>> From<I> for Padding {
+    fn from(insets: I) -> Self {
+        Padding { insets: insets.into() }
+    }
+}
+
 impl Padding {
     pub fn new() -> Padding {
         Padding {

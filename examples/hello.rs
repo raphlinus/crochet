@@ -34,17 +34,15 @@ impl HelloState {
     }
 
     fn run(&mut self, cx: &mut Cx) {
-        Padding::new()
-            .uniform(5.0 * (self.name.len() as f64))
-            .build(cx, |cx| {
-                Column::new().build(cx, |cx| {
-                    Label::new(self.name_label()).build(cx);
-                    Padding::new().top(5.0).build(cx, |cx| {
-                        if let Some(name) = TextBox::new(&self.name).build(cx) {
-                            self.name = name;
-                        }
-                    });
+        Padding::from(5.0 * (self.name.len() as f64)).build(cx, |cx| {
+            Column::new().build(cx, |cx| {
+                Label::new(self.name_label()).build(cx);
+                Padding::new().top(5.0).build(cx, |cx| {
+                    if let Some(name) = TextBox::new(&self.name).build(cx) {
+                        self.name = name;
+                    }
                 });
             });
+        });
     }
 }
