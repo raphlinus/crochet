@@ -7,4 +7,7 @@ pub use flex::Flex;
 mod textbox;
 pub use textbox::TextBox;
 
+mod padding;
+pub use padding::Padding;
+
 // TODO: want a "clicked" wrapper.
