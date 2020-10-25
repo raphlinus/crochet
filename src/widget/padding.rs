@@ -16,13 +16,11 @@
 
 use druid::kurbo::{Insets, Point, Rect, Size};
 use druid::{
-    BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx,
+    BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx,
     UpdateCtx, Widget, WidgetPod,
 };
 
-// Addition for Crochet.
-use crate::{DruidAppData, MutIterItem, Payload, any_widget::AnyWidget, view};
-use druid::widget::SizedBox;
+use crate::{any_widget::AnyWidget, view, DruidAppData, MutIterItem, Payload};
 
 /// A widget that just adds padding around its child.
 pub struct Padding {
@@ -31,12 +29,16 @@ pub struct Padding {
     top: f64,
     bottom: f64,
 
-    child: Option<Box<WidgetPod<DruidAppData, AnyWidget>>>,
+    children: Vec<WidgetPod<DruidAppData, AnyWidget>>,
 }
 
-// Addition for Crochet.
 impl Padding {
-    pub(crate) fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, mut_iter: crate::MutationIter) {
+    pub(crate) fn mutate(
+        &mut self,
+        ctx: &mut EventCtx,
+        body: Option<&Payload>,
+        mut_iter: crate::MutationIter,
+    ) {
         if let Some(Payload::View(view)) = body {
             if let Some(v) = view.as_any().downcast_ref::<view::Padding>() {
                 let insets = v.insets;
@@ -56,24 +58,22 @@ impl Padding {
                 MutIterItem::Skip(n) => {
                     println!("skipping {} items", n);
                     ix += n;
-                },
+                }
                 MutIterItem::Delete(n) => {
                     println!("deleting {} items", n);
-                    self.child = None;
+                    self.children.drain(ix..ix + n);
                     children_changed = true;
                 }
                 MutIterItem::Insert(id, body, child_iter) => {
                     println!("inserting item");
                     let child = AnyWidget::mutate_insert(ctx, id, body, child_iter);
-                    self.child = Some(Box::new(WidgetPod::new(child)));
+                    self.children.insert(ix, WidgetPod::new(child));
                     ix += 1;
                     children_changed = true;
                 }
                 MutIterItem::Update(body, child_iter) => {
                     println!("updating item");
-                    self.child
-                        .as_mut()
-                        .unwrap()
+                    self.children[ix]
                         .widget_mut()
                         .mutate_update(ctx, body, child_iter);
                     ix += 1;
@@ -126,14 +126,14 @@ impl Padding {
             right: insets.x1,
             top: insets.y0,
             bottom: insets.y1,
-            child: None,
+            children: Vec::new(),
         }
     }
 }
 
 impl Widget<DruidAppData> for Padding {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
-        if let Some(child) = &mut self.child {
+        if let Some(child) = self.children.get_mut(0) {
             child.event(ctx, event, data, env)
         }
     }
@@ -145,7 +145,7 @@ impl Widget<DruidAppData> for Padding {
         data: &DruidAppData,
         env: &Env,
     ) {
-        if let Some(child) = &mut self.child {
+        if let Some(child) = self.children.get_mut(0) {
             child.lifecycle(ctx, event, data, env)
         }
     }
@@ -157,7 +157,7 @@ impl Widget<DruidAppData> for Padding {
         data: &DruidAppData,
         env: &Env,
     ) {
-        if let Some(child) = &mut self.child {
+        if let Some(child) = self.children.get_mut(0) {
             child.update(ctx, data, env);
         }
     }
@@ -170,8 +170,14 @@ impl Widget<DruidAppData> for Padding {
         env: &Env,
     ) -> Size {
         bc.debug_check("Padding");
+        if self.children.len() > 1 {
+            log::warn!(
+                "Padding only supports a single child, but it got {}",
+                self.children.len()
+            );
+        }
 
-        if let Some(child) = &mut self.child {
+        if let Some(child) = self.children.get_mut(0) {
             let hpad = self.left + self.right;
             let vpad = self.top + self.bottom;
 
@@ -190,7 +196,7 @@ impl Widget<DruidAppData> for Padding {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
-        if let Some(child) = &mut self.child {
+        if let Some(child) = self.children.get_mut(0) {
             child.paint(ctx, data, env);
         }
     }

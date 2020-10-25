@@ -28,13 +28,12 @@ impl MyAppLogic {
                 if Button::new("Increment").build(cx) {
                     self.count += 1;
                 }
-                Padding::new().top(10.0).build(cx, |cx| {
-                    if self.count > 3 && self.count < 6 {
+                if self.count > 3 && self.count < 6 {
+                    Padding::new().top(10.0).build(cx, |cx| {
                         Label::new("You did it!").build(cx);
-                    } else {
-                        Label::new("Keep going!").build(cx);
-                    }
-                });
+                        Label::new("Great!").build(cx);
+                    });
+                }
             });
         });
     }
