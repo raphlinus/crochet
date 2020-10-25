@@ -14,13 +14,12 @@ impl Checkbox {
         Checkbox { id, state, inner }
     }
 
-    pub fn set_state(&mut self, content: bool) {
-        self.state = content;
+    pub fn set_state(&mut self, state: bool) {
+        self.state = state;
     }
 
-    pub fn set_text(&mut self, _content: String) {
-        // TODO: Waiting for Druid update.
-        //self.inner.widget_mut().set_text(content);
+    pub fn set_text(&mut self, label: String) {
+        self.inner = WidgetPod::new(druid::widget::Checkbox::new(label));
     }
 }
 
