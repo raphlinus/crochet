@@ -190,7 +190,9 @@ pub struct Padding {
 
 impl<I: Into<druid::Insets>> From<I> for Padding {
     fn from(insets: I) -> Self {
-        Padding { insets: insets.into() }
+        Padding {
+            insets: insets.into(),
+        }
     }
 }
 

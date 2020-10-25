@@ -16,8 +16,8 @@
 
 use druid::kurbo::{Insets, Point, Rect, Size};
 use druid::{
-    BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx,
-    UpdateCtx, Widget, WidgetPod,
+    BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, UpdateCtx,
+    Widget, WidgetPod,
 };
 
 use crate::{any_widget::AnyWidget, view, DruidAppData, MutIterItem, Payload};
@@ -65,14 +65,12 @@ impl Padding {
                     children_changed = true;
                 }
                 MutIterItem::Insert(id, body, child_iter) => {
-                    println!("inserting item");
                     let child = AnyWidget::mutate_insert(ctx, id, body, child_iter);
                     self.children.insert(ix, WidgetPod::new(child));
                     ix += 1;
                     children_changed = true;
                 }
                 MutIterItem::Update(body, child_iter) => {
-                    println!("updating item");
                     self.children[ix]
                         .widget_mut()
                         .mutate_update(ctx, body, child_iter);
