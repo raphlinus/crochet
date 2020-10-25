@@ -30,4 +30,4 @@ pub use id::Id;
 pub use list::{List, ListData};
 pub use state::State;
 pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Payload, Tree};
-pub use view::{Button, Column, Label, Row, TextBox};
+pub use view::{Button, Column, Label, Padding, Row, TextBox};

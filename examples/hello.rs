@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Column, Cx, DruidAppData, Label, TextBox};
+use crochet::{AppHolder, Column, Cx, DruidAppData, Label, Padding, TextBox};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -34,11 +34,15 @@ impl HelloState {
     }
 
     fn run(&mut self, cx: &mut Cx) {
-        Column::new().build(cx, |cx| {
-            Label::new(self.name_label()).build(cx);
-            if let Some(name) = TextBox::new(&self.name).build(cx) {
-                self.name = name;
-            }
+        Padding::from(5.0 * (self.name.len() as f64)).build(cx, |cx| {
+            Column::new().build(cx, |cx| {
+                Label::new(self.name_label()).build(cx);
+                Padding::new().top(5.0).build(cx, |cx| {
+                    if let Some(name) = TextBox::new(&self.name).build(cx) {
+                        self.name = name;
+                    }
+                });
+            });
         });
     }
 }

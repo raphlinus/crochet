@@ -183,6 +183,58 @@ impl View for TextBox {
     }
 }
 
+#[derive(Debug)]
+pub struct Padding {
+    pub(crate) insets: druid::Insets,
+}
+
+impl<I: Into<druid::Insets>> From<I> for Padding {
+    fn from(insets: I) -> Self {
+        Padding { insets: insets.into() }
+    }
+}
+
+impl Padding {
+    pub fn new() -> Padding {
+        Padding {
+            insets: druid::Insets::ZERO,
+        }
+    }
+
+    pub fn uniform(mut self, insets: f64) -> Self {
+        self.insets = druid::Insets::uniform(insets);
+        self
+    }
+
+    pub fn top(mut self, insets: f64) -> Self {
+        self.insets.y0 = insets;
+        self
+    }
+
+    #[track_caller]
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
+        cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        result
+    }
+}
+
+impl View for Padding {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.insets == other.insets
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let row = crate::widget::Padding::new(self.insets);
+        AnyWidget::Padding(row)
+    }
+}
+
 // TODO: this is commented out because the widget is not written yet.
 /*
 /// A wrapper for detecting click gestures.

@@ -6,7 +6,7 @@ use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
 use crate::view;
-use crate::widget::{Flex, TextBox};
+use crate::widget::{Flex, Padding, TextBox};
 use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
@@ -38,6 +38,7 @@ pub enum AnyWidget {
     Label(Label<DruidAppData>),
     Flex(Flex),
     TextBox(TextBox),
+    Padding(Padding),
     /// A do-nothing container for another widget.
     ///
     /// Currently we use this for state nodes.
@@ -58,6 +59,7 @@ macro_rules! methods {
             AnyWidget::Label(w) => w.$method_name($($args),+),
             AnyWidget::Flex(w) => w.$method_name($($args),+),
             AnyWidget::TextBox(w) => w.$method_name($($args),+),
+            AnyWidget::Padding(w) => w.$method_name($($args),+),
             AnyWidget::Passthrough(w) => w.$method_name($($args),+),
         }
     };
@@ -130,6 +132,7 @@ impl AnyWidget {
                     }
                 }
             }
+            AnyWidget::Padding(p) => p.mutate(ctx, body, mut_iter),
             AnyWidget::Passthrough(p) => {
                 if let Some(MutIterItem::Update(body, iter)) = mut_iter.next() {
                     p.mutate_update(ctx, body, iter);
