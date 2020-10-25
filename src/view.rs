@@ -190,7 +190,9 @@ pub struct Padding {
 
 impl<I: Into<druid::Insets>> From<I> for Padding {
     fn from(insets: I) -> Self {
-        Padding { insets: insets.into() }
+        Padding {
+            insets: insets.into(),
+        }
     }
 }
 
@@ -232,6 +234,50 @@ impl View for Padding {
     fn make_widget(&self, _id: Id) -> AnyWidget {
         let row = crate::widget::Padding::new(self.insets);
         AnyWidget::Padding(row)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Checkbox {
+    pub(crate) state: bool,
+    pub(crate) label: String,
+}
+
+impl Checkbox {
+    pub fn new(text: impl Into<String>, state: bool) -> Checkbox {
+        Checkbox {
+            state,
+            label: text.into(),
+        }
+    }
+
+    #[must_use]
+    #[track_caller]
+    pub fn build(self, cx: &mut Cx) -> bool {
+        let old_state = self.state;
+        let id = cx.leaf_view(self, Location::caller());
+        cx.app_data
+            .dequeue_action(id)
+            .map(|action| match action {
+                Action::Toggled(state) => state,
+                _ => unreachable!("Checkbox should never emit any Action other than Toggled"),
+            })
+            .unwrap_or(old_state)
+    }
+}
+
+impl View for Checkbox {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self == other
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, id: Id) -> AnyWidget {
+        let checkbox = crate::widget::Checkbox::new(id, self.state, self.label.clone());
+        AnyWidget::Checkbox(checkbox)
     }
 }
 
