@@ -14,7 +14,7 @@ features = ["async-std"]
 
 [dependencies.druid]
 git = "https://github.com/linebender/druid"
-rev = "7a3251b9b89df11af653189f2be04c7304861acf"
+branch = "temp-patch-for-crochet"
 
 [dependencies]
 log = "0.4.11"
