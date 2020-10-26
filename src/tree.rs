@@ -28,7 +28,7 @@ pub struct Item {
 ///
 /// Conceptually, a tree follows this grammar:
 ///
-/// ```
+/// ```no_compile
 /// tree := element*
 /// element := begin attribute* tree end
 /// ```
