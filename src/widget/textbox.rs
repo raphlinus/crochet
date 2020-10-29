@@ -5,11 +5,11 @@ use druid::{widget::prelude::*, WidgetPod};
 pub struct TextBox {
     id: Id,
     content: String,
-    inner: WidgetPod<String, druid::widget::TextBox>,
+    inner: WidgetPod<String, druid::widget::TextBox<String>>,
 }
 
 impl TextBox {
-    pub fn new(id: Id, content: String, inner: druid::widget::TextBox) -> Self {
+    pub fn new(id: Id, content: String, inner: druid::widget::TextBox<String>) -> Self {
         let inner = WidgetPod::new(inner);
         TextBox { id, content, inner }
     }

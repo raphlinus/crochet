@@ -114,7 +114,7 @@ pub enum MutIterItem<'a> {
     Update(Option<&'a Payload>, MutationIter<'a>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 /// An iterator for reading out a tree mutation.
 pub struct MutationIter<'a> {
     tree: &'a Tree,

@@ -71,9 +71,9 @@ impl Padding {
                     children_changed = true;
                 }
                 MutIterItem::Update(body, child_iter) => {
-                    self.children[ix]
-                        .widget_mut()
-                        .mutate_update(ctx, body, child_iter);
+                    self.children[ix].with_event_context(ctx, |child, ctx| {
+                        child.mutate_update(ctx, body, child_iter);
+                    });
                     ix += 1;
                 }
             }

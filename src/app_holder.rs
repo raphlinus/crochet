@@ -63,7 +63,9 @@ impl AppHolder {
         (self.app_logic)(&mut cx);
         let mutation = cx.into_mutation();
         let mut_iter = MutationIter::new(&self.tree, &mutation);
-        self.child.widget_mut().mutate_update(ctx, None, mut_iter);
+        self.child.with_event_context(ctx, |child, ctx| {
+            child.mutate_update(ctx, None, mut_iter);
+        });
         self.tree.mutate(mutation);
         // This will bring the ui up-to-date and avoid stale state.
         // A better solution would be nice, but this is simple and seems to work.
