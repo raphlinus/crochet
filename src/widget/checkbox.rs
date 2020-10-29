@@ -19,7 +19,7 @@ impl Checkbox {
     }
 
     pub fn set_text(&mut self, label: String) {
-        self.inner = WidgetPod::new(druid::widget::Checkbox::new(label));
+        self.inner.widget_mut().set_text(label);
     }
 }
 

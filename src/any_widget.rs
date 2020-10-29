@@ -122,7 +122,7 @@ impl AnyWidget {
                 if let Some(Payload::View(view)) = body {
                     if let Some(v) = view.as_any().downcast_ref::<view::Label>() {
                         l.set_text(v.0.to_string());
-                        ctx.request_layout();
+                        ctx.request_update();
                     }
                 }
             }

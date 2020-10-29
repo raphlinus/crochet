@@ -575,8 +575,9 @@ impl Flex {
                 MutIterItem::Update(body, child_iter) => {
                     self.children[ix]
                         .widget
-                        .widget_mut()
-                        .mutate_update(ctx, body, child_iter);
+                        .with_event_context(ctx, |child, ctx| {
+                            child.mutate_update(ctx, body, child_iter);
+                        });
                     ix += 1;
                 }
             }
