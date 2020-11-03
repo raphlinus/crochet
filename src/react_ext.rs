@@ -1,8 +1,7 @@
-use crate::react_builder::{VirtualDomBuilder, WithEvent};
+use crate::react_builder::{ElementTree, WithEvent};
 use crate::react_comp::VirtualDom;
 
-pub trait VirtualDomBuilderExt<ExplicitState>: VirtualDomBuilder<ExplicitState> + Sized {
-    // TODO - shorten
+pub trait VirtualDomBuilderExt<ExplicitState>: ElementTree<ExplicitState> + Sized {
     fn with_event<
         Cb: Fn(&mut ExplicitState, &<Self::Target as VirtualDom<ExplicitState>>::Event),
     >(
@@ -10,14 +9,14 @@ pub trait VirtualDomBuilderExt<ExplicitState>: VirtualDomBuilder<ExplicitState> 
         callback: Cb,
     ) -> WithEvent<Self, Cb, ExplicitState> {
         WithEvent {
-            component: self,
+            element: self,
             callback,
             _state: Default::default(),
         }
     }
 }
 
-impl<ExplicitState, VDB: VirtualDomBuilder<ExplicitState>> VirtualDomBuilderExt<ExplicitState>
+impl<ExplicitState, VDB: ElementTree<ExplicitState>> VirtualDomBuilderExt<ExplicitState>
     for VDB
 {
 }

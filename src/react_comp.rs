@@ -6,16 +6,11 @@ use std::panic::Location;
 //
 // Improve performance
 // Remove track_caller
-//
-// Add VirtualDom::DomRef associated type
-// Implement ExplicitState for events
 
-// TODO - box?
-
-pub trait VirtualDom<ExplicitState> {
+pub trait VirtualDom<ParentComponentState> {
     type Event;
-    // TODO - rename to internal state
-    type State;
+    type DomState;
+    type AggregateComponentState;
 
     // update_value is intended to enable memoize-style HOC
     // where instead of returning a vdom node, it returns
@@ -24,24 +19,26 @@ pub trait VirtualDom<ExplicitState> {
     fn update_value(&mut self, other: Self);
 
     #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::State;
+    fn init_tree(&self, cx: &mut Cx) -> Self::DomState;
 
-    fn apply_diff(&self, other: &Self, prev_state: Self::State, cx: &mut Cx) -> Self::State;
+    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState;
 
     fn process_event(
         &self,
-        explicit_state: &mut ExplicitState,
-        state: &mut Self::State,
+        explicit_state: &mut ParentComponentState,
+        children_state: &mut Self::AggregateComponentState,
+        dom_state: &mut Self::DomState,
         cx: &mut Cx,
     ) -> Option<Self::Event>;
 }
 
 #[derive(Debug, PartialEq)]
-pub struct VDomLabelTarget<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
+pub struct LabelTarget<ParentComponentState>(pub String, pub std::marker::PhantomData<ParentComponentState>);
 
-impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabelTarget<ExplicitState> {
+impl<ParentComponentState> VirtualDom<ParentComponentState> for LabelTarget<ParentComponentState> {
     type Event = ();
-    type State = Id;
+    type DomState = Id;
+    type AggregateComponentState = ();
 
     fn update_value(&mut self, other: Self) {
         *self = other;
@@ -61,8 +58,9 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabelTarget<ExplicitState>
 
     fn process_event(
         &self,
-        _explicit_state: &mut ExplicitState,
-        _state: &mut Id,
+        _explicit_state: &mut ParentComponentState,
+        _children_state: &mut (),
+        _dom_state: &mut Id,
         _cx: &mut Cx,
     ) -> Option<()> {
         None
@@ -70,13 +68,14 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomLabelTarget<ExplicitState>
 }
 
 #[derive(Debug, PartialEq)]
-pub struct VDomButtonTarget<ExplicitState>(pub String, pub std::marker::PhantomData<ExplicitState>);
+pub struct ButtonTarget<ParentComponentState>(pub String, pub std::marker::PhantomData<ParentComponentState>);
 
 pub struct ButtonPressed();
 
-impl<ExplicitState> VirtualDom<ExplicitState> for VDomButtonTarget<ExplicitState> {
+impl<ParentComponentState> VirtualDom<ParentComponentState> for ButtonTarget<ParentComponentState> {
     type Event = ButtonPressed;
-    type State = Id;
+    type DomState = Id;
+    type AggregateComponentState = ();
 
     fn update_value(&mut self, other: Self) {
         *self = other;
@@ -101,11 +100,12 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomButtonTarget<ExplicitState
 
     fn process_event(
         &self,
-        _explicit_state: &mut ExplicitState,
-        state: &mut Id,
+        _explicit_state: &mut ParentComponentState,
+        _children_state: &mut (),
+        dom_state: &mut Id,
         cx: &mut Cx,
     ) -> Option<ButtonPressed> {
-        let id = *state;
+        let id = *dom_state;
         if cx.app_data.dequeue_action(id).is_some() {
             Some(ButtonPressed())
         } else {
@@ -114,18 +114,18 @@ impl<ExplicitState> VirtualDom<ExplicitState> for VDomButtonTarget<ExplicitState
     }
 }
 
-pub struct ComponentTupleTarget<
-    C0: VirtualDom<ExplicitState>,
-    C1: VirtualDom<ExplicitState>,
-    C2: VirtualDom<ExplicitState>,
-    C3: VirtualDom<ExplicitState>,
-    ExplicitState,
+pub struct ElementTupleTarget<
+    C0: VirtualDom<ParentComponentState>,
+    C1: VirtualDom<ParentComponentState>,
+    C2: VirtualDom<ParentComponentState>,
+    C3: VirtualDom<ParentComponentState>,
+    ParentComponentState,
 >(
     pub C0,
     pub C1,
     pub C2,
     pub C3,
-    pub std::marker::PhantomData<ExplicitState>,
+    pub std::marker::PhantomData<ParentComponentState>,
 );
 
 pub enum EventEnum<T0, T1, T2, T3> {
@@ -136,22 +136,23 @@ pub enum EventEnum<T0, T1, T2, T3> {
 }
 
 impl<
-        C0: VirtualDom<ExplicitState>,
-        C1: VirtualDom<ExplicitState>,
-        C2: VirtualDom<ExplicitState>,
-        C3: VirtualDom<ExplicitState>,
-        ExplicitState,
-    > VirtualDom<ExplicitState> for ComponentTupleTarget<C0, C1, C2, C3, ExplicitState>
+        C0: VirtualDom<ParentComponentState>,
+        C1: VirtualDom<ParentComponentState>,
+        C2: VirtualDom<ParentComponentState>,
+        C3: VirtualDom<ParentComponentState>,
+        ParentComponentState,
+    > VirtualDom<ParentComponentState> for ElementTupleTarget<C0, C1, C2, C3, ParentComponentState>
 {
     type Event = EventEnum<C0::Event, C1::Event, C2::Event, C3::Event>;
-    type State = (C0::State, C1::State, C2::State, C3::State);
+    type DomState = (C0::DomState, C1::DomState, C2::DomState, C3::DomState);
+    type AggregateComponentState = (C0::AggregateComponentState, C1::AggregateComponentState, C2::AggregateComponentState, C3::AggregateComponentState);
 
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
     #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::State {
+    fn init_tree(&self, cx: &mut Cx) -> Self::DomState {
         (
             self.0.init_tree(cx),
             self.1.init_tree(cx),
@@ -161,7 +162,7 @@ impl<
     }
 
     #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Self::State, cx: &mut Cx) -> Self::State {
+    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState {
         (
             self.0.apply_diff(&other.0, prev_state.0, cx),
             self.1.apply_diff(&other.1, prev_state.1, cx),
@@ -172,40 +173,43 @@ impl<
 
     fn process_event(
         &self,
-        explicit_state: &mut ExplicitState,
-        state: &mut Self::State,
+        explicit_state: &mut ParentComponentState,
+        children_state: &mut Self::AggregateComponentState,
+        dom_state: &mut Self::DomState,
         cx: &mut Cx,
     ) -> Option<Self::Event> {
         let event0 = self
             .0
-            .process_event(explicit_state, &mut state.0, cx)
+            .process_event(explicit_state, &mut children_state.0, &mut dom_state.0, cx)
             .map(|event| EventEnum::E0(event));
         let event1 = self
             .1
-            .process_event(explicit_state, &mut state.1, cx)
+            .process_event(explicit_state, &mut children_state.1, &mut dom_state.1, cx)
             .map(|event| EventEnum::E1(event));
         let event2 = self
             .2
-            .process_event(explicit_state, &mut state.2, cx)
+            .process_event(explicit_state, &mut children_state.2, &mut dom_state.2, cx)
             .map(|event| EventEnum::E2(event));
         let event3 = self
             .3
-            .process_event(explicit_state, &mut state.3, cx)
+            .process_event(explicit_state, &mut children_state.3, &mut dom_state.3, cx)
             .map(|event| EventEnum::E3(event));
 
-        // FIXME
+        // FIXME - If several events happen simultaneously, this will swallow all but one
+        // process_event should return an iterator or an observable instead.
         event0.or(event1).or(event2).or(event3)
     }
 }
 
 // Instead of doing multiple implementations of TupleComponent for different tuple sizes,
-// I'm being lazy and doing one implem for a huge tuple, and stuffing it with EmptyComponent
+// I'm being lazy and doing one implem for a huge tuple, and stuffing it with EmptyElement
 // when using it. It's *a lot* easier.
-pub struct EmptyComponentTarget<ExplicitState>(pub std::marker::PhantomData<ExplicitState>);
+pub struct EmptyElementTarget<ParentComponentState>(pub std::marker::PhantomData<ParentComponentState>);
 
-impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponentTarget<ExplicitState> {
+impl<ParentComponentState> VirtualDom<ParentComponentState> for EmptyElementTarget<ParentComponentState> {
     type Event = ();
-    type State = ();
+    type DomState = ();
+    type AggregateComponentState = ();
 
     fn update_value(&mut self, _other: Self) {}
 
@@ -217,20 +221,21 @@ impl<ExplicitState> VirtualDom<ExplicitState> for EmptyComponentTarget<ExplicitS
 
     fn process_event(
         &self,
-        _explicit_state: &mut ExplicitState,
-        _state: &mut (),
+        _explicit_state: &mut ParentComponentState,
+        _children_state: &mut (),
+        _dom_state: &mut (),
         _cx: &mut Cx,
     ) -> Option<()> {
         return None;
     }
 }
 
-pub struct ComponentListTarget<Comp: VirtualDom<ExplicitState>, ExplicitState> {
-    pub components: Vec<(String, Comp)>,
-    pub _expl_state: std::marker::PhantomData<ExplicitState>,
+pub struct ElementListTarget<Comp: VirtualDom<ParentComponentState>, ParentComponentState> {
+    pub elements: Vec<(String, Comp)>,
+    pub _expl_state: std::marker::PhantomData<ParentComponentState>,
 }
 
-impl<Comp: VirtualDom<ExplicitState>, ExplicitState> ComponentListTarget<Comp, ExplicitState> {
+impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> ElementListTarget<Comp, ParentComponentState> {
     // We use separate functions so that crochet correctly identifies that update_value and
     // init_tree operate on the same value; it dectects this through #[track_caller]
     fn my_begin(&self, cx: &mut Cx) {
@@ -242,22 +247,23 @@ impl<Comp: VirtualDom<ExplicitState>, ExplicitState> ComponentListTarget<Comp, E
     }
 }
 
-impl<Comp: VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState>
-    for ComponentListTarget<Comp, ExplicitState>
+impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> VirtualDom<ParentComponentState>
+    for ElementListTarget<Comp, ParentComponentState>
 {
-    type Event = (i32, Comp::Event);
-    type State = Vec<Comp::State>;
+    type Event = (usize, Comp::Event);
+    type DomState = Vec<Comp::DomState>;
+    type AggregateComponentState = Vec<(String, Comp::AggregateComponentState)>;
 
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
     #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::State {
+    fn init_tree(&self, cx: &mut Cx) -> Self::DomState {
         self.my_begin(cx);
 
         let state = self
-            .components
+            .elements
             .iter()
             .map(|(_, comp)| {
                 cx.begin_view(Box::new(crate::Row), Location::caller());
@@ -272,22 +278,23 @@ impl<Comp: VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState>
         state
     }
 
+    // FIXME
     // This only works if we assume that items are ever only added at the end of the list.
     // Sounds perfectly reasonable to me.
     // (seriously though, a serious implementation would try to do whatever crochet::List::run does)
     #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Self::State, cx: &mut Cx) -> Self::State {
+    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState {
         self.my_begin(cx);
 
         let mut updated_state: Vec<_> = other
-            .components
+            .elements
             .iter()
             .zip(prev_state)
             .map(|item| {
                 let (other_id, other_comp) = item.0;
                 let prev_comp_state = item.1;
 
-                if let Some((_, comp)) = self.components.iter().find(|(id, _)| id == other_id) {
+                if let Some((_, comp)) = self.elements.iter().find(|(id, _)| id == other_id) {
                     cx.begin_view(Box::new(crate::Row), Location::caller());
                     let comp_state = comp.apply_diff(other_comp, prev_comp_state, cx);
                     cx.end();
@@ -302,11 +309,11 @@ impl<Comp: VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState>
             .collect();
 
         let mut new_state = self
-            .components
+            .elements
             .iter()
             .map(|(id, comp)| {
                 if other
-                    .components
+                    .elements
                     .iter()
                     .find(|(other_id, _)| id == other_id)
                     .is_none()
@@ -332,16 +339,17 @@ impl<Comp: VirtualDom<ExplicitState>, ExplicitState> VirtualDom<ExplicitState>
 
     fn process_event(
         &self,
-        explicit_state: &mut ExplicitState,
-        state: &mut Self::State,
+        explicit_state: &mut ParentComponentState,
+        children_state: &mut Self::AggregateComponentState,
+        dom_state: &mut Self::DomState,
         cx: &mut Cx,
-    ) -> Option<(i32, Comp::Event)> {
-        for (i, comp_data) in self.components.iter().zip(state).enumerate() {
-            let (_key, comp) = comp_data.0;
-            let comp_state = comp_data.1;
-            if let Some(event) = comp.process_event(explicit_state, comp_state, cx) {
-                // BAAAAAD
-                return Some((i as i32, event));
+    ) -> Option<(usize, Comp::Event)> {
+        for (i, elem_data) in self.elements.iter().zip(children_state).zip(dom_state).enumerate() {
+            let (_key, element) = elem_data.0.0;
+            let elem_comp_state = elem_data.0.1;
+            let elem_dom_state = elem_data.1;
+            if let Some(event) = element.process_event(explicit_state, &mut elem_comp_state.1, elem_dom_state, cx) {
+                return Some((i, event));
             }
         }
         return None;
