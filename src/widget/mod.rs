@@ -1,6 +1,9 @@
 //! This module contains widgets that have been cut and pasted from Druid,
 //! adapted to support the "mutate" method.
 
+mod single;
+pub use single::SingleChild;
+
 mod flex;
 pub use flex::Flex;
 
