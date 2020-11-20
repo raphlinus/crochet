@@ -14,13 +14,12 @@
 
 //! A widget that just adds padding during layout.
 
+use crate::{view, DruidAppData, Payload, SingleChild};
 use druid::kurbo::{Insets, Point, Rect, Size};
 use druid::{
     BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, UpdateCtx,
-    Widget, WidgetPod,
+    Widget,
 };
-
-use crate::{any_widget::AnyWidget, view, DruidAppData, MutIterItem, Payload};
 
 /// A widget that just adds padding around its child.
 pub struct Padding {
@@ -29,7 +28,7 @@ pub struct Padding {
     top: f64,
     bottom: f64,
 
-    children: Vec<WidgetPod<DruidAppData, AnyWidget>>,
+    child: SingleChild,
 }
 
 impl Padding {
@@ -51,36 +50,7 @@ impl Padding {
             }
         }
 
-        let mut ix = 0;
-        let mut children_changed = false;
-        for item in mut_iter {
-            match item {
-                MutIterItem::Skip(n) => {
-                    println!("skipping {} items", n);
-                    ix += n;
-                }
-                MutIterItem::Delete(n) => {
-                    println!("deleting {} items", n);
-                    self.children.drain(ix..ix + n);
-                    children_changed = true;
-                }
-                MutIterItem::Insert(id, body, child_iter) => {
-                    let child = AnyWidget::mutate_insert(ctx, id, body, child_iter);
-                    self.children.insert(ix, WidgetPod::new(child));
-                    ix += 1;
-                    children_changed = true;
-                }
-                MutIterItem::Update(body, child_iter) => {
-                    self.children[ix].with_event_context(ctx, |child, ctx| {
-                        child.mutate_update(ctx, body, child_iter);
-                    });
-                    ix += 1;
-                }
-            }
-        }
-        if children_changed {
-            ctx.children_changed();
-        }
+        self.child.mutate(ctx, mut_iter);
     }
 }
 
@@ -121,14 +91,14 @@ impl Padding {
             right: insets.x1,
             top: insets.y0,
             bottom: insets.y1,
-            children: Vec::new(),
+            child: SingleChild::new(),
         }
     }
 }
 
 impl Widget<DruidAppData> for Padding {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
-        if let Some(child) = self.children.get_mut(0) {
+        if let Some(child) = self.child.get_mut() {
             child.event(ctx, event, data, env)
         }
     }
@@ -140,7 +110,7 @@ impl Widget<DruidAppData> for Padding {
         data: &DruidAppData,
         env: &Env,
     ) {
-        if let Some(child) = self.children.get_mut(0) {
+        if let Some(child) = self.child.get_mut() {
             child.lifecycle(ctx, event, data, env)
         }
     }
@@ -152,7 +122,7 @@ impl Widget<DruidAppData> for Padding {
         data: &DruidAppData,
         env: &Env,
     ) {
-        if let Some(child) = self.children.get_mut(0) {
+        if let Some(child) = self.child.get_mut() {
             child.update(ctx, data, env);
         }
     }
@@ -165,14 +135,7 @@ impl Widget<DruidAppData> for Padding {
         env: &Env,
     ) -> Size {
         bc.debug_check("Padding");
-        if self.children.len() > 1 {
-            log::warn!(
-                "Padding only supports a single child, but it got {}",
-                self.children.len()
-            );
-        }
-
-        if let Some(child) = self.children.get_mut(0) {
+        if let Some(child) = self.child.get_mut() {
             let hpad = self.left + self.right;
             let vpad = self.top + self.bottom;
 
@@ -191,7 +154,7 @@ impl Widget<DruidAppData> for Padding {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &DruidAppData, env: &Env) {
-        if let Some(child) = self.children.get_mut(0) {
+        if let Some(child) = self.child.get_mut() {
             child.paint(ctx, data, env);
         }
     }
