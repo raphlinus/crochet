@@ -2,7 +2,7 @@
 
 use druid::{AppLauncher, PlatformError, Widget, WindowDesc};
 
-use crochet::{AppHolder, Button, Column, Cx, DruidAppData, Label, Padding};
+use crochet::{AppHolder, Button, Clicked, Column, Cx, DruidAppData, Label, Padding};
 
 fn main() -> Result<(), PlatformError> {
     let main_window = WindowDesc::new(ui_builder);
@@ -30,7 +30,13 @@ impl MyAppLogic {
                 }
                 if self.count > 3 && self.count < 6 {
                     Padding::new().top(10.0).build(cx, |cx| {
-                        Label::new("You did it!").build(cx);
+                        let clicked = Clicked::new().build(cx, |cx| {
+                            Label::new("You did it! Now click here!").build(cx);
+                        });
+                        if clicked {
+                            println!("It's over 9000!");
+                            self.count += 9000;
+                        }
                     });
                 }
             });
