@@ -281,8 +281,6 @@ impl View for Checkbox {
     }
 }
 
-// TODO: this is commented out because the widget is not written yet.
-/*
 /// A wrapper for detecting click gestures.
 #[derive(Debug)]
 pub struct Clicked;
@@ -292,10 +290,11 @@ impl Clicked {
         Clicked
     }
 
+    #[must_use]
     #[track_caller]
-    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx)) -> bool {
+    pub fn build(self, cx: &mut Cx, f: impl FnOnce(&mut Cx)) -> bool {
         let id = cx.begin_view(Box::new(self), Location::caller());
-        let result = f(cx);
+        f(cx);
         cx.end();
         cx.app_data.dequeue_action(id).is_some()
     }
@@ -310,9 +309,8 @@ impl View for Clicked {
         }
     }
 
-    fn make_widget(&self, _id: Id) -> AnyWidget {
-        let clicked = crate::widget::Clicked::new();
-        AnyWidget::Clicked(clicked)
+    fn make_widget(&self, id: Id) -> AnyWidget {
+        let clicked = crate::widget::Click::new(id);
+        AnyWidget::Click(clicked)
     }
 }
-*/
