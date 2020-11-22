@@ -1,4 +1,4 @@
-use crate::{any_widget::Action, DruidAppData, Id};
+use crate::{any_widget::Action, view, DruidAppData, Id, MutableWidget, MutationIter, Payload};
 use druid::{widget::prelude::*, WidgetPod};
 
 /// A wrapper around `druid::TextBox` with `DruidAppData` instead of `String`.
@@ -13,9 +13,16 @@ impl TextBox {
         let inner = WidgetPod::new(inner);
         TextBox { id, content, inner }
     }
+}
 
-    pub fn set_text(&mut self, content: String) {
-        self.content = content;
+impl MutableWidget for TextBox {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, _mut_iter: MutationIter) {
+        if let Some(Payload::View(view)) = body {
+            if let Some(v) = view.as_any().downcast_ref::<view::TextBox>() {
+                self.content = v.0.clone();
+                ctx.request_update();
+            }
+        }
     }
 }
 

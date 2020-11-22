@@ -14,7 +14,7 @@
 
 //! A widget that just adds padding during layout.
 
-use crate::{view, DruidAppData, Payload, SingleChild};
+use crate::{view, DruidAppData, MutableWidget, MutationIter, Payload, SingleChild};
 use druid::kurbo::{Insets, Point, Rect, Size};
 use druid::{
     BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, UpdateCtx,
@@ -31,13 +31,8 @@ pub struct Padding {
     child: SingleChild,
 }
 
-impl Padding {
-    pub(crate) fn mutate(
-        &mut self,
-        ctx: &mut EventCtx,
-        body: Option<&Payload>,
-        mut_iter: crate::MutationIter,
-    ) {
+impl MutableWidget for Padding {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, mut_iter: MutationIter) {
         if let Some(Payload::View(view)) = body {
             if let Some(v) = view.as_any().downcast_ref::<view::Padding>() {
                 let insets = v.insets;

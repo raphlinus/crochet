@@ -1,6 +1,8 @@
 use druid::{widget::prelude::*, MouseButton, Point};
 
-use crate::{any_widget::Action, DruidAppData, Id, Payload, SingleChild};
+use crate::{
+    any_widget::Action, DruidAppData, Id, MutableWidget, MutationIter, Payload, SingleChild,
+};
 
 pub struct Click {
     id: Id,
@@ -14,13 +16,10 @@ impl Click {
             child: SingleChild::new(),
         }
     }
+}
 
-    pub(crate) fn mutate(
-        &mut self,
-        ctx: &mut EventCtx,
-        _body: Option<&Payload>,
-        mut_iter: crate::MutationIter,
-    ) {
+impl MutableWidget for Click {
+    fn mutate(&mut self, ctx: &mut EventCtx, _body: Option<&Payload>, mut_iter: MutationIter) {
         self.child.mutate(ctx, mut_iter);
     }
 }
