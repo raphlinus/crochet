@@ -5,8 +5,11 @@ use std::collections::HashMap;
 use druid::widget::prelude::*;
 use druid::{Point, Selector, SingleUse, WidgetPod};
 
-use crate::any_widget::{Action, AnyWidget, DruidAppData};
 use crate::state::State;
+use crate::{
+    any_widget::{Action, AnyWidget, DruidAppData},
+    widget,
+};
 use crate::{Cx, Id, MutationIter, Tree};
 
 pub const ASYNC: Selector<SingleUse<(Id, Id, Box<dyn State>)>> = Selector::new("crochet.async");
@@ -42,7 +45,8 @@ pub struct AppHolder {
 
 impl AppHolder {
     pub fn new(app_logic: impl FnMut(&mut Cx) + 'static) -> AppHolder {
-        let child = WidgetPod::new(AnyWidget::column());
+        let root = AnyWidget::MutableWidget(Box::new(widget::SizedBox::new(&Default::default())));
+        let child = WidgetPod::new(root);
         AppHolder {
             tree: Tree::default(),
             app_logic: Box::new(app_logic),

@@ -6,7 +6,7 @@ use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
 use crate::view;
-use crate::{widget::Flex, MutableWidget};
+use crate::MutableWidget;
 use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
@@ -57,13 +57,6 @@ impl MutableWidget for Label<DruidAppData> {
 impl MutableWidget for ControllerHost<Button<DruidAppData>, Click<DruidAppData>> {
     fn mutate(&mut self, _ctx: &mut EventCtx, _body: Option<&Payload>, _mut_iter: MutationIter) {
         // TODO: Update button text here.
-    }
-}
-
-impl AnyWidget {
-    /// Create a new column.
-    pub fn column() -> AnyWidget {
-        AnyWidget::MutableWidget(Box::new(Flex::column()))
     }
 }
 
