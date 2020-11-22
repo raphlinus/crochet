@@ -314,6 +314,55 @@ impl View for Clicked {
         AnyWidget::Click(clicked)
     }
 }
+
+/// A widget to do some custom painting.
+///
+/// # Important
+/// This must always be wrapped in an `if_changed` block,
+/// because it can not check whether any of the closures
+/// parameters have changed.
+#[derive(Clone)]
+pub struct Painter<D> {
+    pub(crate) data: D,
+    pub(crate) paint: fn(&mut druid::PaintCtx, &druid::Env, data: &D),
+}
+
+impl<D> std::fmt::Debug for Painter<D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Painter")
+    }
+}
+
+impl<D: druid::Data> Painter<D> {
+    pub fn new(data: D) -> Self {
+        Painter {
+            data,
+            paint: |_, _, _| {},
+        }
+    }
+
+    #[track_caller]
+    pub fn build(mut self, cx: &mut Cx, paint: fn(&mut druid::PaintCtx, &druid::Env, &D)) {
+        self.paint = paint;
+        cx.leaf_view(self, Location::caller());
+    }
+}
+
+impl<D: druid::Data> View for Painter<D> {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.data.same(&other.data)
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let widget = crate::widget::Painter::new(self.clone());
+        AnyWidget::Painter(Box::new(widget))
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SizedBox {
     pub(crate) width: Option<f64>,

@@ -21,3 +21,12 @@ pub use click::Click;
 
 mod sized_box;
 pub use sized_box::SizedBox;
+
+mod painter;
+pub use painter::Painter;
+
+use crate::{DruidAppData, MutationIter, Payload};
+use druid::EventCtx;
+pub trait MutableWidget: druid::Widget<DruidAppData> {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, mut_iter: MutationIter);
+}
