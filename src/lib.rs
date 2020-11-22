@@ -30,5 +30,7 @@ pub use id::Id;
 pub use list::{List, ListData};
 pub use state::State;
 pub use tree::{MutCursor, MutIterItem, Mutation, MutationIter, Payload, Tree};
-pub use widget::SingleChild;
-pub use view::{Button, Checkbox, Clicked, Column, Label, Padding, Row, SizedBox, TextBox};
+pub use view::{
+    Button, Checkbox, Clicked, Column, Label, Padding, Painter, Row, SizedBox, TextBox,
+};
+pub use widget::{MutableWidget, SingleChild};
