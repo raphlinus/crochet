@@ -18,3 +18,6 @@ pub use checkbox::Checkbox;
 
 mod click;
 pub use click::Click;
+
+mod sized_box;
+pub use sized_box::SizedBox;

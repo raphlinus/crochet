@@ -1,7 +1,7 @@
 //! A description of a widget.
 
-use std::any::Any;
 use std::panic::Location;
+use std::{any::Any, f64::INFINITY};
 
 use druid::widget;
 
@@ -312,5 +312,97 @@ impl View for Clicked {
     fn make_widget(&self, id: Id) -> AnyWidget {
         let clicked = crate::widget::Click::new(id);
         AnyWidget::Click(clicked)
+    }
+}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SizedBox {
+    pub(crate) width: Option<f64>,
+    pub(crate) height: Option<f64>,
+}
+
+impl<I: Into<druid::kurbo::Size>> From<I> for SizedBox {
+    fn from(size: I) -> Self {
+        let size = size.into();
+        SizedBox {
+            width: Some(size.width),
+            height: Some(size.height),
+        }
+    }
+}
+
+impl SizedBox {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn uniform(mut self, size: f64) -> Self {
+        self.width = Some(size);
+        self.height = Some(size);
+        self
+    }
+
+    /// Set container's width.
+    pub fn width(mut self, width: f64) -> Self {
+        self.width = Some(width);
+        self
+    }
+
+    /// Set container's height.
+    pub fn height(mut self, height: f64) -> Self {
+        self.height = Some(height);
+        self
+    }
+
+    /// Expand container to fit the parent.
+    ///
+    /// Only call this method if you want your widget to occupy all available
+    /// space. If you only care about expanding in one of width or height, use
+    /// [`expand_width`] or [`expand_height`] instead.
+    ///
+    /// [`expand_height`]: #method.expand_height
+    /// [`expand_width`]: #method.expand_width
+    pub fn expand(mut self) -> Self {
+        self.width = Some(INFINITY);
+        self.height = Some(INFINITY);
+        self
+    }
+
+    /// Expand the container on the x-axis.
+    ///
+    /// This will force the child to have maximum width.
+    pub fn expand_width(mut self) -> Self {
+        self.width = Some(INFINITY);
+        self
+    }
+
+    /// Expand the container on the y-axis.
+    ///
+    /// This will force the child to have maximum height.
+    pub fn expand_height(mut self) -> Self {
+        self.height = Some(INFINITY);
+        self
+    }
+
+    #[track_caller]
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
+        cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        result
+    }
+}
+
+impl View for SizedBox {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.width == other.width && self.height == other.height
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let widget = crate::widget::SizedBox::new(&self);
+        AnyWidget::SizedBox(widget)
     }
 }
