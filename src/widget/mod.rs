@@ -25,6 +25,9 @@ pub use sized_box::SizedBox;
 mod painter;
 pub use painter::Painter;
 
+mod align;
+pub use align::Align;
+
 use crate::{DruidAppData, MutationIter, Payload};
 use druid::EventCtx;
 pub trait MutableWidget: druid::Widget<DruidAppData> {

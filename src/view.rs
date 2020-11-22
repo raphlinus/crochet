@@ -3,7 +3,7 @@
 use std::panic::Location;
 use std::{any::Any, f64::INFINITY};
 
-use druid::widget;
+use druid::{widget, UnitPoint};
 
 use crate::any_widget::{Action, AnyWidget, DruidAppData};
 use crate::cx::Cx;
@@ -453,6 +453,86 @@ impl View for SizedBox {
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
         let widget = crate::widget::SizedBox::new(&self);
+        AnyWidget::MutableWidget(Box::new(widget))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Align {
+    pub align: UnitPoint,
+    pub width_factor: Option<f64>,
+    pub height_factor: Option<f64>,
+}
+
+impl Align {
+    /// Create widget with alignment.
+    ///
+    /// Note that the `align` parameter is specified as a `UnitPoint` in
+    /// terms of left and right. This is inadequate for bidi-aware layout
+    /// and thus the API will change when druid gains bidi capability.
+    pub fn new(align: UnitPoint) -> Self {
+        Align {
+            align,
+            width_factor: None,
+            height_factor: None,
+        }
+    }
+
+    /// Create centered widget.
+    pub fn centered() -> Self {
+        Align::new(UnitPoint::CENTER)
+    }
+
+    /// Create right-aligned widget.
+    pub fn right() -> Self {
+        Align::new(UnitPoint::RIGHT)
+    }
+
+    /// Create left-aligned widget.
+    pub fn left() -> Self {
+        Align::new(UnitPoint::LEFT)
+    }
+
+    /// Align only in the horizontal axis, keeping the child's size in the vertical.
+    pub fn horizontal(align: UnitPoint) -> Self {
+        Align {
+            align,
+            width_factor: None,
+            height_factor: Some(1.0),
+        }
+    }
+
+    /// Align only in the vertical axis, keeping the child's size in the horizontal.
+    pub fn vertical(align: UnitPoint) -> Self {
+        Align {
+            align,
+            width_factor: Some(1.0),
+            height_factor: None,
+        }
+    }
+
+    #[track_caller]
+    pub fn build<T>(self, cx: &mut Cx, f: impl FnOnce(&mut Cx) -> T) -> T {
+        cx.begin_view(Box::new(self), Location::caller());
+        let result = f(cx);
+        cx.end();
+        result
+    }
+}
+
+impl View for Align {
+    fn same(&self, other: &dyn View) -> bool {
+        if let Some(other) = other.as_any().downcast_ref::<Self>() {
+            self.width_factor == other.width_factor
+                && self.height_factor == other.height_factor
+                && true // FIXME: && self.align == other.align
+        } else {
+            false
+        }
+    }
+
+    fn make_widget(&self, _id: Id) -> AnyWidget {
+        let widget = crate::widget::Align::new(&self);
         AnyWidget::MutableWidget(Box::new(widget))
     }
 }
