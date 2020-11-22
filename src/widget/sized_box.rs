@@ -1,6 +1,6 @@
 //! A widget with predefined size.
 
-use crate::{view, DruidAppData, Payload, SingleChild};
+use crate::{view, DruidAppData, MutableWidget, MutationIter, Payload, SingleChild};
 use druid::{widget::prelude::*, Point};
 
 /// A widget with predefined size.
@@ -18,13 +18,8 @@ pub struct SizedBox {
     inner: SingleChild,
 }
 
-impl SizedBox {
-    pub(crate) fn mutate(
-        &mut self,
-        ctx: &mut EventCtx,
-        body: Option<&Payload>,
-        mut_iter: crate::MutationIter,
-    ) {
+impl MutableWidget for SizedBox {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, mut_iter: MutationIter) {
         if let Some(Payload::View(view)) = body {
             if let Some(v) = view.as_any().downcast_ref::<view::SizedBox>() {
                 self.width = v.width;

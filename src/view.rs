@@ -50,7 +50,8 @@ impl View for Label {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        AnyWidget::Label(widget::Label::new(self.0.to_string()))
+        let widget = widget::Label::new(self.0.to_string());
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -79,9 +80,9 @@ impl View for Button {
     }
 
     fn make_widget(&self, id: Id) -> AnyWidget {
-        let button = widget::Button::new(self.0.clone())
+        let widget = widget::Button::new(self.0.clone())
             .on_click(move |_, data: &mut DruidAppData, _| data.queue_action(id, Action::Clicked));
-        AnyWidget::Button(button)
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -112,8 +113,8 @@ impl View for Row {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        let row = crate::widget::Flex::row();
-        AnyWidget::Flex(row)
+        let widget = crate::widget::Flex::row();
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -144,8 +145,8 @@ impl View for Column {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        let column = crate::widget::Flex::column();
-        AnyWidget::Flex(column)
+        let widget = crate::widget::Flex::column();
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -178,8 +179,8 @@ impl View for TextBox {
     }
 
     fn make_widget(&self, id: Id) -> AnyWidget {
-        let text_box = crate::widget::TextBox::new(id, self.0.clone(), widget::TextBox::new());
-        AnyWidget::TextBox(text_box)
+        let widget = crate::widget::TextBox::new(id, self.0.clone(), widget::TextBox::new());
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -232,8 +233,8 @@ impl View for Padding {
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
-        let row = crate::widget::Padding::new(self.insets);
-        AnyWidget::Padding(row)
+        let widget = crate::widget::Padding::new(self.insets);
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -276,8 +277,8 @@ impl View for Checkbox {
     }
 
     fn make_widget(&self, id: Id) -> AnyWidget {
-        let checkbox = crate::widget::Checkbox::new(id, self.state, self.label.clone());
-        AnyWidget::Checkbox(checkbox)
+        let widget = crate::widget::Checkbox::new(id, self.state, self.label.clone());
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -310,8 +311,8 @@ impl View for Clicked {
     }
 
     fn make_widget(&self, id: Id) -> AnyWidget {
-        let clicked = crate::widget::Click::new(id);
-        AnyWidget::Click(clicked)
+        let widget = crate::widget::Click::new(id);
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -359,7 +360,7 @@ impl<D: druid::Data> View for Painter<D> {
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
         let widget = crate::widget::Painter::new(self.clone());
-        AnyWidget::Painter(Box::new(widget))
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }
 
@@ -452,6 +453,6 @@ impl View for SizedBox {
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
         let widget = crate::widget::SizedBox::new(&self);
-        AnyWidget::SizedBox(widget)
+        AnyWidget::MutableWidget(Box::new(widget))
     }
 }

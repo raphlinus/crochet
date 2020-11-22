@@ -5,11 +5,8 @@ use druid::widget::prelude::*;
 use druid::widget::{Button, Click, ControllerHost, Label};
 use druid::Data;
 
-use crate::{view, widget::SizedBox};
-use crate::{
-    widget::{Checkbox, Click as CrochetClick, Flex, Padding, TextBox},
-    MutableWidget,
-};
+use crate::view;
+use crate::{widget::Flex, MutableWidget};
 use crate::{Id, MutIterItem, MutationIter, Payload};
 
 /// The type we use for app data for Druid integration.
@@ -38,40 +35,42 @@ pub enum Action {
 /// In the expected evolution of the architecture, the `mutate`
 /// method is added to `Widget`.
 pub enum AnyWidget {
-    Button(ControllerHost<Button<DruidAppData>, Click<DruidAppData>>),
-    Label(Label<DruidAppData>),
-    Flex(Flex),
-    TextBox(TextBox),
-    Padding(Padding),
-    Checkbox(Checkbox),
-    Click(CrochetClick),
-    Painter(Box<dyn MutableWidget>),
-    SizedBox(SizedBox),
+    /// A normal widget.
+    MutableWidget(Box<dyn MutableWidget>),
     /// A do-nothing container for another widget.
     ///
     /// Currently we use this for state nodes.
     Passthrough(Box<AnyWidget>),
 }
 
+impl MutableWidget for Label<DruidAppData> {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, _mut_iter: MutationIter) {
+        if let Some(Payload::View(view)) = body {
+            if let Some(v) = view.as_any().downcast_ref::<view::Label>() {
+                self.set_text(v.0.to_string());
+                ctx.request_update();
+            }
+        }
+    }
+}
+
+impl MutableWidget for ControllerHost<Button<DruidAppData>, Click<DruidAppData>> {
+    fn mutate(&mut self, _ctx: &mut EventCtx, _body: Option<&Payload>, _mut_iter: MutationIter) {
+        // TODO: Update button text here.
+    }
+}
+
 impl AnyWidget {
     /// Create a new column.
     pub fn column() -> AnyWidget {
-        AnyWidget::Flex(Flex::column())
+        AnyWidget::MutableWidget(Box::new(Flex::column()))
     }
 }
 
 macro_rules! methods {
     ($method_name: ident, $self: ident, $($args:ident),+) => {
         match $self {
-            AnyWidget::Button(w) => w.$method_name($($args),+),
-            AnyWidget::Label(w) => w.$method_name($($args),+),
-            AnyWidget::Flex(w) => w.$method_name($($args),+),
-            AnyWidget::TextBox(w) => w.$method_name($($args),+),
-            AnyWidget::Padding(w) => w.$method_name($($args),+),
-            AnyWidget::Checkbox(w) => w.$method_name($($args),+),
-            AnyWidget::Click(w) => w.$method_name($($args),+),
-            AnyWidget::Painter(w) => w.$method_name($($args),+),
-            AnyWidget::SizedBox(w) => w.$method_name($($args),+),
+            AnyWidget::MutableWidget(w) => w.$method_name($($args),+),
             AnyWidget::Passthrough(w) => w.$method_name($($args),+),
         }
     };
@@ -126,37 +125,7 @@ impl AnyWidget {
         mut mut_iter: MutationIter,
     ) {
         match self {
-            AnyWidget::Button(_) => (),
-            AnyWidget::Label(l) => {
-                if let Some(Payload::View(view)) = body {
-                    if let Some(v) = view.as_any().downcast_ref::<view::Label>() {
-                        l.set_text(v.0.to_string());
-                        ctx.request_update();
-                    }
-                }
-            }
-            AnyWidget::Flex(f) => f.mutate(ctx, mut_iter),
-            AnyWidget::TextBox(t) => {
-                if let Some(Payload::View(view)) = body {
-                    if let Some(v) = view.as_any().downcast_ref::<view::TextBox>() {
-                        t.set_text(v.0.to_string());
-                        ctx.request_update();
-                    }
-                }
-            }
-            AnyWidget::Padding(p) => p.mutate(ctx, body, mut_iter),
-            AnyWidget::Checkbox(c) => {
-                if let Some(Payload::View(view)) = body {
-                    if let Some(v) = view.as_any().downcast_ref::<view::Checkbox>() {
-                        c.set_text(v.label.to_string());
-                        c.set_state(v.state);
-                        ctx.request_update();
-                    }
-                }
-            }
-            AnyWidget::Click(c) => c.mutate(ctx, body, mut_iter),
-            AnyWidget::Painter(p) => p.mutate(ctx, body, mut_iter),
-            AnyWidget::SizedBox(b) => b.mutate(ctx, body, mut_iter),
+            AnyWidget::MutableWidget(p) => p.mutate(ctx, body, mut_iter),
             AnyWidget::Passthrough(p) => {
                 if let Some(MutIterItem::Update(body, iter)) = mut_iter.next() {
                     p.mutate_update(ctx, body, iter);

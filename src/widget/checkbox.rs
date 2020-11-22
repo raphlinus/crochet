@@ -1,4 +1,4 @@
-use crate::{any_widget::Action, DruidAppData, Id};
+use crate::{any_widget::Action, view, DruidAppData, Id, MutableWidget, MutationIter, Payload};
 use druid::{widget::prelude::*, WidgetPod};
 
 /// A wrapper around `druid::Checkbox` with `DruidAppData` instead of `bool`.
@@ -13,13 +13,17 @@ impl Checkbox {
         let inner = WidgetPod::new(druid::widget::Checkbox::new(label));
         Checkbox { id, state, inner }
     }
+}
 
-    pub fn set_state(&mut self, state: bool) {
-        self.state = state;
-    }
-
-    pub fn set_text(&mut self, label: String) {
-        self.inner.widget_mut().set_text(label);
+impl MutableWidget for Checkbox {
+    fn mutate(&mut self, ctx: &mut EventCtx, body: Option<&Payload>, _mut_iter: MutationIter) {
+        if let Some(Payload::View(view)) = body {
+            if let Some(v) = view.as_any().downcast_ref::<view::Checkbox>() {
+                self.state = v.state;
+                self.inner.widget_mut().set_text(v.label.clone());
+                ctx.request_update();
+            }
+        }
     }
 }
 

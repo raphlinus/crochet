@@ -28,7 +28,10 @@ use druid::{
     PaintCtx, UpdateCtx, Widget, WidgetPod,
 };
 
-use crate::any_widget::{AnyWidget, DruidAppData};
+use crate::{
+    any_widget::{AnyWidget, DruidAppData},
+    MutableWidget, Payload,
+};
 use crate::{MutIterItem, MutationIter};
 
 /// A container with either horizontal or vertical layout.
@@ -552,8 +555,10 @@ impl Flex {
         self.add_flex_child(child, flex);
     }
     */
+}
 
-    pub(crate) fn mutate(&mut self, ctx: &mut EventCtx, mut_iter: MutationIter) {
+impl MutableWidget for Flex {
+    fn mutate(&mut self, ctx: &mut EventCtx, _body: Option<&Payload>, mut_iter: MutationIter) {
         let mut ix = 0;
         let mut children_changed = false;
         for item in mut_iter {
