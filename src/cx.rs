@@ -49,7 +49,7 @@ impl<'a> Cx<'a> {
     }
 
     pub fn end(&mut self) {
-        self.mut_cursor.end();
+        self.mut_cursor.end_body();
     }
 
     /// Add a view as a leaf.
@@ -60,9 +60,8 @@ impl<'a> Cx<'a> {
         // Note: this always boxes (for convenience), but could be written
         // in terms of begin_core to avoid boxing on skip.
         let view = Box::new(view);
-        let body = Payload::View(view);
-        let id = self.mut_cursor.begin_loc(body, loc);
-        self.mut_cursor.end();
+        let id = self.begin_view(view, loc);
+        self.end();
         id
     }
 
@@ -74,7 +73,15 @@ impl<'a> Cx<'a> {
     /// The API may change to return a child cx.
     pub fn begin_view(&mut self, view: Box<dyn View>, loc: &'static Location) -> Id {
         let body = Payload::View(view);
-        self.mut_cursor.begin_loc(body, loc)
+        let is_new = self.begin_item_at(loc);
+        let id = self.get_id();
+        if is_new {
+            self.set_payload(body);
+        } else if &body != self.get_payload().unwrap() {
+            self.set_payload(body);
+        }
+        self.end_item_and_begin_body();
+        id
     }
 
     /// Traverse into a subtree only if the data has changed.
@@ -245,7 +252,11 @@ impl<'a> Cx<'a> {
 impl<'a> Cx<'a> {
     #[track_caller]
     pub fn begin_item(&mut self) -> bool {
-        self.mut_cursor.begin_item()
+        self.mut_cursor.begin_item(Location::caller())
+    }
+
+    pub fn begin_item_at(&mut self, location: &'static Location) -> bool {
+        self.mut_cursor.begin_item(location)
     }
 
     pub fn get_id(&self) -> Id {

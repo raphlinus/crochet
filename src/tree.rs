@@ -230,10 +230,8 @@ impl Mutation {
 }
 
 impl<'a> MutCursor<'a> {
-    #[track_caller]
-    pub fn begin_item(&mut self) -> bool {
-        let caller = Location::caller().into();
-        let key = Key::new(caller, self.seq_ix(caller));
+    pub fn begin_item(&mut self, location: &'static Location) -> bool {
+        let key = self.key_from_loc(location);
         if self.nest == self.old_nest {
             if let Some(n) = self.find_key(key) {
                 self.ix += n;
@@ -318,12 +316,13 @@ impl<'a> MutCursor<'a> {
         } else {
             self.mutation.skip(1);
         }
+        self.current = None;
     }
 
     #[track_caller]
     pub fn end_body(&mut self) {
-        if self.current.is_none() {
-            panic!("MutCursor::end_body called before calling MutCursor::begin_item");
+        if self.current.is_some() {
+            panic!("MutCursor::end_body called before calling MutCursor::end_item_and_begin_body");
         }
         if self.nest == self.old_nest {
             let n_trim = self.count_trim();
