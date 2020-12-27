@@ -92,40 +92,45 @@ impl<'a> Cx<'a> {
     /// This method also traverses into the subtree if any of its action
     /// queues are non-empty.
     #[track_caller]
-    pub fn if_changed<T: PartialEq + State + 'static, U>(
-        &mut self,
-        data: T,
-        f: impl FnOnce(&mut Cx) -> U,
-    ) -> Option<U> {
-        let key = self.mut_cursor.key_from_loc(Location::caller());
-        let changed = self.mut_cursor.begin_core(key, |_id, old_body| {
-            if let Some(Payload::State(old_data)) = old_body {
+    pub fn if_changed<T, U>(&mut self, data: T, f: impl FnOnce(&mut Cx) -> U) -> Option<U>
+    where
+        T: PartialEq + State + 'static,
+    {
+        let location = Location::caller();
+
+        let mut changed = self.begin_item_at(location);
+        if changed {
+            self.set_payload(Payload::State(Box::new(data)));
+        } else {
+            if let Some(Payload::State(old_data)) = self.get_payload() {
                 if let Some(old_data) = old_data.as_any().downcast_ref::<T>() {
-                    if old_data == &data {
-                        (None, false)
-                    } else {
-                        // Types match, data not equal
-                        (Some(Payload::State(Box::new(data))), true)
+                    if old_data != &data {
+                        changed = true;
+                        self.set_payload(Payload::State(Box::new(data)));
                     }
                 } else {
-                    // Downcast failed; this shouldn't happen
-                    (Some(Payload::State(Box::new(data))), true)
+                    panic!("State type of an if_changed block changed unexpectedly");
                 }
             } else {
-                // Probably inserting new state
-                (Some(Payload::State(Box::new(data))), true)
+                panic!("Payload of if_canged block was not a Payload::State");
             }
-        });
+        }
+        self.end_item_and_begin_body();
+
         let actions = self.has_action();
+
         let result = if changed || actions {
             Some(f(self))
         } else {
             // TODO: here's a place that needs work if we relax the requirement
             // of exactly one child node.
+
+            // Skip all children, by default they would be removed.
             self.mut_cursor.skip_one();
             None
         };
-        self.mut_cursor.end();
+
+        self.end_body();
         result
     }
 
