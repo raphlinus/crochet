@@ -10,7 +10,7 @@ use druid::{ExtEventSink, SingleUse, Target};
 #[cfg(feature = "async-std")]
 use async_std::future::Future;
 
-use crate::any_widget::DruidAppData;
+use crate::any_widget::{Action, DruidAppData};
 #[cfg(feature = "async-std")]
 use crate::app_holder::ASYNC;
 use crate::id::Id;
@@ -239,5 +239,36 @@ impl<'a> Cx<'a> {
         self.mut_cursor
             .descendant_ids()
             .any(|id| self.app_data.has_action(id))
+    }
+}
+
+impl<'a> Cx<'a> {
+    #[track_caller]
+    pub fn begin_item(&mut self) -> bool {
+        self.mut_cursor.begin_item()
+    }
+
+    pub fn get_id(&self) -> Id {
+        self.mut_cursor.get_current_id()
+    }
+
+    pub fn dequeue_action(&mut self) -> Option<Action> {
+        self.app_data.dequeue_action(self.get_id())
+    }
+
+    pub fn get_payload(&self) -> Option<&Payload> {
+        self.mut_cursor.get_current_payload()
+    }
+
+    pub fn set_payload(&mut self, payload: Payload) {
+        self.mut_cursor.set_current_payload(payload);
+    }
+
+    pub fn end_item_and_begin_body(&mut self) {
+        self.mut_cursor.end_item_and_begin_body();
+    }
+
+    pub fn end_body(&mut self) {
+        self.mut_cursor.end_body();
     }
 }

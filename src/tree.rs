@@ -62,6 +62,14 @@ pub struct MutCursor<'a> {
     nest: usize,
     // Nesting level in old tree
     old_nest: usize,
+    current: Option<CurrentItem>,
+}
+
+struct CurrentItem {
+    id: Id,
+    key: Key,
+    payload: Option<Payload>,
+    is_new: bool,
 }
 
 /// A tree mutation.
@@ -222,6 +230,114 @@ impl Mutation {
 }
 
 impl<'a> MutCursor<'a> {
+    #[track_caller]
+    pub fn begin_item(&mut self) -> bool {
+        let caller = Location::caller().into();
+        let key = Key::new(caller, self.seq_ix(caller));
+        if self.nest == self.old_nest {
+            if let Some(n) = self.find_key(key) {
+                self.ix += n;
+                self.mutation.delete(n);
+                if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix) {
+                    self.ix += 1;
+                    self.nest += 1;
+                    self.old_nest += 1;
+                    let id = old.id;
+                    self.current = Some(CurrentItem {
+                        id,
+                        key,
+                        payload: None,
+                        is_new: false,
+                    });
+                    return false;
+                }
+            }
+        }
+        self.nest += 1;
+        let id = Id::new();
+        self.current = Some(CurrentItem {
+            id,
+            key,
+            payload: None,
+            is_new: true,
+        });
+        return true;
+    }
+
+    #[track_caller]
+    pub fn get_current_id(&self) -> Id {
+        self.current.as_ref().unwrap().id
+    }
+
+    #[track_caller]
+    pub fn get_current_payload(&self) -> Option<&Payload> {
+        if self.current.is_none() {
+            panic!("MutCursor::get_current_payload called before calling MutCursor::begin_item");
+        }
+        let current = self.current.as_ref().unwrap();
+        if current.is_new {
+            current.payload.as_ref()
+        } else if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix - 1) {
+            Some(&old.body)
+        } else {
+            panic!("Expected old body but found something else");
+        }
+    }
+
+    pub fn set_current_payload(&mut self, payload: Payload) {
+        if self.current.is_none() {
+            panic!("MutCursor::set_current_payload called before calling MutCursor::begin_item");
+        }
+        self.current.as_mut().unwrap().payload = Some(payload);
+    }
+
+    #[track_caller]
+    pub fn end_item_and_begin_body(&mut self) {
+        if self.current.is_none() {
+            panic!("MutCursor::end_item called before calling MutCursor::begin_item");
+        }
+        let current = self.current.as_mut().unwrap();
+        if current.is_new {
+            if current.payload.is_none() {
+                panic!("MutCursor::end_item called on a new item without setting the payload");
+            }
+            let new_body = current.payload.take().unwrap();
+            let item = Item {
+                key: current.key,
+                id: current.id,
+                body: new_body,
+            };
+            self.mutation.insert_one(Slot::Begin(item));
+        } else if let Some(new_body) = current.payload.take() {
+            let item = Item {
+                key: current.key,
+                id: current.id,
+                body: new_body,
+            };
+            self.mutation.update_one(Slot::Begin(item));
+        } else {
+            self.mutation.skip(1);
+        }
+    }
+
+    #[track_caller]
+    pub fn end_body(&mut self) {
+        if self.current.is_none() {
+            panic!("MutCursor::end_body called before calling MutCursor::begin_item");
+        }
+        if self.nest == self.old_nest {
+            let n_trim = self.count_trim();
+            self.ix += n_trim + 1;
+            self.mutation.delete(n_trim);
+            self.mutation.skip(1);
+        } else {
+            self.nest -= 1;
+            self.mutation.insert_one(Slot::End);
+        }
+    }
+}
+
+impl<'a> MutCursor<'a> {
     /// Start building a tree mutation.
     pub fn new(tree: &Tree) -> MutCursor {
         MutCursor {
@@ -230,6 +346,7 @@ impl<'a> MutCursor<'a> {
             mutation: Mutation::new(),
             nest: 0,
             old_nest: 0,
+            current: None,
         }
     }
 
@@ -279,6 +396,7 @@ impl<'a> MutCursor<'a> {
                 self.ix += n;
                 self.mutation.delete(n);
                 if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix) {
+                    assert_eq!(old.key, key, "Can those ever be different?");
                     if old.key == key {
                         self.ix += 1;
                         self.nest += 1;
