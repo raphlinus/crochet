@@ -11,7 +11,7 @@ use std::panic::Location;
 #[derive(Clone, Copy, Debug)]
 pub struct Caller(&'static Location<'static>);
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Key {
     /// The caller that originated the mutation.
     pub(crate) caller: Caller,
@@ -22,6 +22,19 @@ pub struct Key {
     /// of the caller and sequence number.
     pub(crate) seq_ix: usize,
 }
+
+impl std::fmt::Debug for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}:{}:{} #{}",
+            self.caller.0.file().split('/').last().unwrap_or(""),
+            self.caller.0.line(),
+            self.caller.0.column(),
+            self.seq_ix,
+        ))
+    }
+}
+
 
 impl Key {
     pub fn new(caller: impl Into<Caller>, seq_ix: usize) -> Key {
