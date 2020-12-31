@@ -26,6 +26,8 @@ mod widget;
 pub mod react_builder;
 pub mod react_comp;
 pub mod react_ext;
+pub mod react_widgets;
+pub mod flex2;
 
 pub use any_widget::DruidAppData;
 pub use app_holder::AppHolder;

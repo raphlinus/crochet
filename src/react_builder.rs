@@ -4,6 +4,10 @@ use crate::react_comp::{
     ButtonPressed, ButtonTarget, ElementListTarget, ElementTupleTarget, EmptyElementTarget,
     EventEnum, LabelTarget, VirtualDom,
 };
+use crate::flex2;
+
+use druid::{Widget, WidgetPod, widget, Point};
+use druid::widget::prelude::*;
 
 pub trait ElementTree<ExplicitState> {
     type Event;
@@ -176,23 +180,24 @@ impl<
     type DomState = Child::DomState;
     type AggregateComponentState = Child::AggregateComponentState;
 
+    type TargetWidget = Child::TargetWidget;
+
     fn update_value(&mut self, other: Self) {
         self.element.update_value(other.element);
     }
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Child::DomState {
+    fn init_tree(&self, cx: &mut Cx) -> (Child::TargetWidget, Child::DomState) {
         self.element.init_tree(cx)
     }
 
-    #[track_caller]
     fn apply_diff(
         &self,
         other: &Self,
         prev_state: Child::DomState,
+        widget: &mut Self::TargetWidget,
         cx: &mut Cx,
     ) -> Child::DomState {
-        self.element.apply_diff(&other.element, prev_state, cx)
+        self.element.apply_diff(&other.element, prev_state, widget, cx)
     }
 
     fn process_event(
@@ -266,18 +271,26 @@ impl<
     type DomState = Child::DomState;
     type AggregateComponentState = (ChildComponentState, Child::AggregateComponentState);
 
+    type TargetWidget = Child::TargetWidget;
+
     fn update_value(&mut self, other: Self) {
         self.0.update_value(other.0);
     }
 
     #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::DomState {
+    fn init_tree(&self, cx: &mut Cx) -> (Child::TargetWidget, Child::DomState) {
         self.0.init_tree(cx)
     }
 
     #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState {
-        self.0.apply_diff(&other.0, prev_state, cx)
+    fn apply_diff(
+        &self,
+        other: &Self,
+        prev_state: Child::DomState,
+        widget: &mut Child::TargetWidget,
+        cx: &mut Cx
+    ) -> Self::DomState {
+        self.0.apply_diff(&other.0, prev_state, widget, cx)
     }
 
     fn process_event(
@@ -351,6 +364,10 @@ impl<
     }
 }
 
+
+pub type WidgetSeqOf<RootCompState, ReturnedTree> =
+   <<ReturnedTree as ElementTree<RootCompState>>::Target as VirtualDom<RootCompState>>::TargetWidget;
+
 pub struct ReactApp<
     RootCompState,
     ReturnedTree: ElementTree<RootCompState>,
@@ -360,6 +377,8 @@ pub struct ReactApp<
     pub component_state: (RootCompState, ReturnedTree::AggregateState),
     pub vdom: Option<ReturnedTree::Target>,
     pub vdom_state: Option<<ReturnedTree::Target as VirtualDom<RootCompState>>::DomState>,
+    pub default_widget: WidgetPod<(), widget::Flex<()>>,
+    pub widget: Option<WidgetPod<(), flex2::Flex<WidgetSeqOf<RootCompState, ReturnedTree>>>>,
 }
 
 impl<
@@ -372,6 +391,7 @@ impl<
         root_component: Comp,
         root_state: RootCompState,
     ) -> ReactApp<RootCompState, ReturnedTree, Comp> {
+        let default_widget = WidgetPod::new(widget::Flex::row());
         ReactApp {
             root_component: ComponentCaller {
                 component: root_component,
@@ -383,10 +403,11 @@ impl<
             component_state: (root_state, Default::default()),
             vdom: None,
             vdom_state: None,
+            default_widget,
+            widget: None,
         }
     }
 
-    #[track_caller]
     pub fn run(&mut self, cx: &mut Cx) {
         let (vdom, component_state) = (self.root_component.component)(&self.component_state.0, ())
             .build(std::mem::take(&mut self.component_state.1));
@@ -396,7 +417,8 @@ impl<
 
         if let Some(prev_vdom) = self.vdom.as_mut() {
             let prev_vdom_state = self.vdom_state.take().unwrap();
-            vdom_state = vdom.apply_diff(prev_vdom, prev_vdom_state, cx);
+            let flex_widget = self.widget.as_mut().unwrap().widget_mut();
+            vdom_state = vdom.apply_diff(prev_vdom, prev_vdom_state, &mut flex_widget.children_seq, cx);
             prev_vdom.update_value(vdom);
 
             if let Some(_event) = prev_vdom.process_event(
@@ -408,10 +430,100 @@ impl<
                 // callback(&event, &mut self.state);
             }
         } else {
-            vdom_state = vdom.init_tree(cx);
+            let (widget_seq, vdom_data) = vdom.init_tree(cx);
+            self.widget = Some(
+                WidgetPod::new(flex2::Flex {
+                    direction: flex2::Axis::Vertical,
+                    cross_alignment: flex2::CrossAxisAlignment::Center,
+                    main_alignment: flex2::MainAxisAlignment::Start,
+                    fill_major_axis: false,
+                    children_seq: widget_seq,
+                })
+            );
+            vdom_state = vdom_data;
             self.vdom = Some(vdom);
         }
 
         self.vdom_state = Some(vdom_state);
+    }
+}
+
+use crate::any_widget::DruidAppData;
+use crate::Tree;
+
+impl<
+        RootCompState,
+        ReturnedTree: ElementTree<RootCompState>,
+        Comp: Fn(&RootCompState, ()) -> ReturnedTree,
+    > Widget<DruidAppData> for ReactApp<RootCompState, ReturnedTree, Comp>
+{
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut DruidAppData, env: &Env) {
+        let tree: Tree = Default::default();
+        let resolved_futures = Default::default();
+        let event_sink = ctx.get_external_handle();
+        let mut cx = Cx::new(&tree, data, &resolved_futures, &event_sink);
+        self.run(&mut cx);
+
+        if let Some(widget) = &mut self.widget {
+            widget.event(ctx, event, &mut (), env);
+        } else {
+            self.default_widget.event(ctx, event, &mut (), env);
+        }
+    }
+
+    fn lifecycle(
+        &mut self,
+        ctx: &mut LifeCycleCtx,
+        event: &LifeCycle,
+        _data: &DruidAppData,
+        env: &Env,
+    ) {
+        if let Some(widget) = &mut self.widget {
+            widget.lifecycle(ctx, event, &(), env);
+        } else {
+            self.default_widget.lifecycle(ctx, event, &(), env);
+        }
+    }
+
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        _old_data: &DruidAppData,
+        _data: &DruidAppData,
+        env: &Env,
+    ) {
+        if let Some(widget) = &mut self.widget {
+            widget.update(ctx, &(), env);
+        } else {
+            self.default_widget.update(ctx, &(), env);
+        }
+    }
+
+    fn layout(
+        &mut self,
+        ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &DruidAppData,
+        env: &Env,
+    ) -> Size {
+        let size;
+
+        if let Some(widget) = &mut self.widget {
+            size = widget.layout(ctx, bc, &(), env);
+            widget.set_layout_rect(ctx, &(), env, (Point::ZERO, size).into());
+        } else {
+            size = self.default_widget.layout(ctx, bc, &(), env);
+            self.default_widget.set_layout_rect(ctx, &(), env, (Point::ZERO, size).into());
+        }
+
+        size
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &DruidAppData, env: &Env) {
+        if let Some(widget) = &mut self.widget {
+            widget.paint(ctx, &(), env);
+        } else {
+            self.default_widget.paint(ctx, &(), env);
+        }
     }
 }

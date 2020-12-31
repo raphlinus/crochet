@@ -1,16 +1,21 @@
 use crate::{Cx, Id};
+use crate::react_widgets::{WidgetSequence, SingleWidget, WidgetTuple, WidgetList};
 
-use std::panic::Location;
+// TODO - refactor away WidgetPod
+use druid::WidgetPod;
+use druid::widget as druid_w;
 
 // TODO
 //
-// Improve performance
-// Remove track_caller
+// Rename VirtualDom
+// Remove crate::Cx and crate::Id
 
 pub trait VirtualDom<ParentComponentState> {
     type Event;
     type DomState;
-    type AggregateComponentState;
+    type AggregateComponentState: Default;
+
+    type TargetWidget : WidgetSequence;
 
     // update_value is intended to enable memoize-style HOC
     // where instead of returning a vdom node, it returns
@@ -18,17 +23,22 @@ pub trait VirtualDom<ParentComponentState> {
     // Ugh. I'm not explaining this well.
     fn update_value(&mut self, other: Self);
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::DomState;
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Self::DomState);
 
-    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState;
+    fn apply_diff(
+        &self,
+        other: &Self,
+        prev_state: Self::DomState,
+        widget: &mut Self::TargetWidget,
+        _cx: &mut Cx
+    ) -> Self::DomState;
 
     fn process_event(
         &self,
         explicit_state: &mut ParentComponentState,
         children_state: &mut Self::AggregateComponentState,
         dom_state: &mut Self::DomState,
-        cx: &mut Cx,
+        _cx: &mut Cx,
     ) -> Option<Self::Event>;
 }
 
@@ -40,20 +50,23 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for LabelTarget<Pare
     type DomState = Id;
     type AggregateComponentState = ();
 
+    type TargetWidget = SingleWidget<druid_w::Label<()>>;
+
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Id {
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Id) {
         let text = &self.0;
-        cx.leaf_view(crate::Label(text.clone()), Location::caller())
+        let id = Id::new();
+        let label = druid_w::Label::new(text.clone());
+        (SingleWidget(WidgetPod::new(label)), id)
     }
 
-    #[track_caller]
-    fn apply_diff(&self, _other: &Self, _prev_state: Id, cx: &mut Cx) -> Id {
+    fn apply_diff(&self, _other: &Self, prev_state: Id, widget: &mut Self::TargetWidget, _cx: &mut Cx) -> Id {
         let text = &self.0;
-        cx.leaf_view(crate::Label(text.clone()), Location::caller())
+        widget.0.widget_mut().set_text(text.clone());
+        prev_state
     }
 
     fn process_event(
@@ -77,25 +90,23 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for ButtonTarget<Par
     type DomState = Id;
     type AggregateComponentState = ();
 
+    type TargetWidget = SingleWidget<druid_w::Button<()>>;
+
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Id {
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Id) {
         let text = &self.0;
-        cx.leaf_view(crate::Button(text.clone()), Location::caller())
+        let id = Id::new();
+        let button = druid_w::Button::new(text.clone());
+        (SingleWidget(WidgetPod::new(button)), id)
     }
 
-    #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Id, cx: &mut Cx) -> Id {
-        if false && &self.0 == &other.0 {
-            cx.skip(1);
-            prev_state
-        } else {
-            let text = &self.0;
-            cx.leaf_view(crate::Button(text.clone()), Location::caller())
-        }
+    fn apply_diff(&self, _other: &Self, prev_state: Self::DomState, _widget: &mut Self::TargetWidget, _cx: &mut Cx) -> Id {
+        let _text = &self.0;
+        //widget.set_text(text.clone());
+        prev_state
     }
 
     fn process_event(
@@ -103,10 +114,10 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for ButtonTarget<Par
         _explicit_state: &mut ParentComponentState,
         _children_state: &mut (),
         dom_state: &mut Id,
-        cx: &mut Cx,
+        _cx: &mut Cx,
     ) -> Option<ButtonPressed> {
         let id = *dom_state;
-        if cx.app_data.dequeue_action(id).is_some() {
+        if _cx.app_data.dequeue_action(id).is_some() {
             Some(ButtonPressed())
         } else {
             None
@@ -147,27 +158,33 @@ impl<
     type DomState = (C0::DomState, C1::DomState, C2::DomState, C3::DomState);
     type AggregateComponentState = (C0::AggregateComponentState, C1::AggregateComponentState, C2::AggregateComponentState, C3::AggregateComponentState);
 
+    type TargetWidget = WidgetTuple<C0::TargetWidget, C1::TargetWidget, C2::TargetWidget, C3::TargetWidget>;
+
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::DomState {
-        (
-            self.0.init_tree(cx),
-            self.1.init_tree(cx),
-            self.2.init_tree(cx),
-            self.3.init_tree(cx),
-        )
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Self::DomState) {
+        let (w0, s0) = self.0.init_tree(_cx);
+        let (w1, s1) = self.1.init_tree(_cx);
+        let (w2, s2) = self.2.init_tree(_cx);
+        let (w3, s3) = self.3.init_tree(_cx);
+
+        (WidgetTuple(w0, w1, w2, w3), (s0, s1, s2, s3))
     }
 
-    #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState {
+    fn apply_diff(
+        &self,
+        other: &Self,
+        prev_state: Self::DomState,
+        widget: &mut Self::TargetWidget,
+        _cx: &mut Cx
+    ) -> Self::DomState {
         (
-            self.0.apply_diff(&other.0, prev_state.0, cx),
-            self.1.apply_diff(&other.1, prev_state.1, cx),
-            self.2.apply_diff(&other.2, prev_state.2, cx),
-            self.3.apply_diff(&other.3, prev_state.3, cx),
+            self.0.apply_diff(&other.0, prev_state.0, &mut widget.0, _cx),
+            self.1.apply_diff(&other.1, prev_state.1, &mut widget.1, _cx),
+            self.2.apply_diff(&other.2, prev_state.2, &mut widget.2, _cx),
+            self.3.apply_diff(&other.3, prev_state.3, &mut widget.3, _cx),
         )
     }
 
@@ -176,23 +193,23 @@ impl<
         explicit_state: &mut ParentComponentState,
         children_state: &mut Self::AggregateComponentState,
         dom_state: &mut Self::DomState,
-        cx: &mut Cx,
+        _cx: &mut Cx,
     ) -> Option<Self::Event> {
         let event0 = self
             .0
-            .process_event(explicit_state, &mut children_state.0, &mut dom_state.0, cx)
+            .process_event(explicit_state, &mut children_state.0, &mut dom_state.0, _cx)
             .map(|event| EventEnum::E0(event));
         let event1 = self
             .1
-            .process_event(explicit_state, &mut children_state.1, &mut dom_state.1, cx)
+            .process_event(explicit_state, &mut children_state.1, &mut dom_state.1, _cx)
             .map(|event| EventEnum::E1(event));
         let event2 = self
             .2
-            .process_event(explicit_state, &mut children_state.2, &mut dom_state.2, cx)
+            .process_event(explicit_state, &mut children_state.2, &mut dom_state.2, _cx)
             .map(|event| EventEnum::E2(event));
         let event3 = self
             .3
-            .process_event(explicit_state, &mut children_state.3, &mut dom_state.3, cx)
+            .process_event(explicit_state, &mut children_state.3, &mut dom_state.3, _cx)
             .map(|event| EventEnum::E3(event));
 
         // FIXME - If several events happen simultaneously, this will swallow all but one
@@ -211,13 +228,15 @@ impl<ParentComponentState> VirtualDom<ParentComponentState> for EmptyElementTarg
     type DomState = ();
     type AggregateComponentState = ();
 
+    type TargetWidget = SingleWidget<druid_w::Flex<()>>;
+
     fn update_value(&mut self, _other: Self) {}
 
-    #[track_caller]
-    fn init_tree(&self, _cx: &mut Cx) -> () {}
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, ()) {
+        (SingleWidget(WidgetPod::new(druid_w::Flex::row())), ())
+    }
 
-    #[track_caller]
-    fn apply_diff(&self, _other: &Self, _prev_state: (), _cx: &mut Cx) -> () {}
+    fn apply_diff(&self, _other: &Self, _prev_state: (), _widget: &mut Self::TargetWidget, _cx: &mut Cx) -> () {}
 
     fn process_event(
         &self,
@@ -235,18 +254,6 @@ pub struct ElementListTarget<Comp: VirtualDom<ParentComponentState>, ParentCompo
     pub _expl_state: std::marker::PhantomData<ParentComponentState>,
 }
 
-impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> ElementListTarget<Comp, ParentComponentState> {
-    // We use separate functions so that crochet correctly identifies that update_value and
-    // init_tree operate on the same value; it dectects this through #[track_caller]
-    fn my_begin(&self, cx: &mut Cx) {
-        cx.begin_view(Box::new(crate::Column), Location::caller());
-    }
-
-    fn my_end(&self, cx: &mut Cx) {
-        cx.end();
-    }
-}
-
 impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> VirtualDom<ParentComponentState>
     for ElementListTarget<Comp, ParentComponentState>
 {
@@ -254,85 +261,75 @@ impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> VirtualDom<Pa
     type DomState = Vec<Comp::DomState>;
     type AggregateComponentState = Vec<(String, Comp::AggregateComponentState)>;
 
+    type TargetWidget = WidgetList<Comp::TargetWidget>;
+
     fn update_value(&mut self, other: Self) {
         *self = other;
     }
 
-    #[track_caller]
-    fn init_tree(&self, cx: &mut Cx) -> Self::DomState {
-        self.my_begin(cx);
-
-        let state = self
+    fn init_tree(&self, _cx: &mut Cx) -> (Self::TargetWidget, Self::DomState) {
+        let (widgets, dom_state): (Vec<_>, Vec<_>) = self
             .elements
             .iter()
-            .map(|(_, comp)| {
-                cx.begin_view(Box::new(crate::Row), Location::caller());
-                let sub_state = comp.init_tree(cx);
-                cx.end();
-                sub_state
-            })
-            .collect();
+            .map(|(_, elem)| elem.init_tree(_cx))
+            .unzip();
 
-        self.my_end(cx);
-
-        state
+        (WidgetList { children: widgets }, dom_state)
     }
 
     // FIXME
     // This only works if we assume that items are ever only added at the end of the list.
     // Sounds perfectly reasonable to me.
     // (seriously though, a serious implementation would try to do whatever crochet::List::run does)
-    #[track_caller]
-    fn apply_diff(&self, other: &Self, prev_state: Self::DomState, cx: &mut Cx) -> Self::DomState {
-        self.my_begin(cx);
-
+    fn apply_diff(
+        &self, other: &Self,
+        prev_state: Self::DomState,
+        widget: &mut Self::TargetWidget,
+        _cx: &mut Cx,
+    ) -> Self::DomState {
         let mut updated_state: Vec<_> = other
             .elements
             .iter()
             .zip(prev_state)
             .map(|item| {
-                let (other_id, other_comp) = item.0;
-                let prev_comp_state = item.1;
+                let (other_id, other_elem) = item.0;
+                let elem_prev_state = item.1;
 
-                if let Some((_, comp)) = self.elements.iter().find(|(id, _)| id == other_id) {
-                    cx.begin_view(Box::new(crate::Row), Location::caller());
-                    let comp_state = comp.apply_diff(other_comp, prev_comp_state, cx);
-                    cx.end();
+                if let Some(((_, elem), ref mut widget)) = self.elements.iter()
+                        .zip(widget.children.iter_mut())
+                        .find(|((id, _), _)| id == other_id)
+                {
+                    let elem_state = elem.apply_diff(other_elem, elem_prev_state, widget, _cx);
 
-                    Some(comp_state)
+                    Some(elem_state)
                 } else {
-                    cx.delete(1);
+                    _cx.delete(1);
                     None
                 }
             })
             .flatten()
             .collect();
 
-        let mut new_state = self
+        let (mut new_widgets, mut new_state): (Vec<_>, Vec<_>)  = self
             .elements
             .iter()
-            .map(|(id, comp)| {
+            .map(|(id, elem)| {
                 if other
                     .elements
                     .iter()
                     .find(|(other_id, _)| id == other_id)
                     .is_none()
                 {
-                    cx.begin_insert();
-                    let new_comp_state = comp.init_tree(cx);
-                    cx.end();
-
-                    Some(new_comp_state)
+                    Some(elem.init_tree(_cx))
                 } else {
                     None
                 }
             })
             .flatten()
-            .collect();
+            .unzip();
 
         updated_state.append(&mut new_state);
-
-        self.my_end(cx);
+        widget.children.append(&mut new_widgets);
 
         updated_state
     }
@@ -342,13 +339,13 @@ impl<Comp: VirtualDom<ParentComponentState>, ParentComponentState> VirtualDom<Pa
         explicit_state: &mut ParentComponentState,
         children_state: &mut Self::AggregateComponentState,
         dom_state: &mut Self::DomState,
-        cx: &mut Cx,
+        _cx: &mut Cx,
     ) -> Option<(usize, Comp::Event)> {
         for (i, elem_data) in self.elements.iter().zip(children_state).zip(dom_state).enumerate() {
             let (_key, element) = elem_data.0.0;
             let elem_comp_state = elem_data.0.1;
             let elem_dom_state = elem_data.1;
-            if let Some(event) = element.process_event(explicit_state, &mut elem_comp_state.1, elem_dom_state, cx) {
+            if let Some(event) = element.process_event(explicit_state, &mut elem_comp_state.1, elem_dom_state, _cx) {
                 return Some((i, event));
             }
         }

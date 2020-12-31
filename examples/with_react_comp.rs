@@ -105,11 +105,7 @@ fn ui_builder() -> impl Widget<DruidAppData> {
         next_id: 8,
     };
 
-    let mut react_component = ReactApp::new(&some_component, state);
-
-    AppHolder::new(move |cx| {
-        react_component.run(cx);
-    })
+    ReactApp::new(&some_component, state)
 }
 
 fn main() -> Result<(), PlatformError> {
