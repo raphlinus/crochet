@@ -231,6 +231,9 @@ impl Mutation {
 
 impl<'a> MutCursor<'a> {
     pub fn begin_item(&mut self, location: &'static Location) -> bool {
+        if self.current.is_some() {
+            panic!("MutCursor::begin_item called before calling MutCursor::end_item");
+        }
         let key = self.key_from_loc(location);
         if self.nest == self.old_nest {
             if let Some(n) = self.find_key(key) {
@@ -270,11 +273,13 @@ impl<'a> MutCursor<'a> {
     #[track_caller]
     pub fn get_current_payload(&self) -> Option<&Payload> {
         if self.current.is_none() {
-            panic!("MutCursor::get_current_payload called before calling MutCursor::begin_item");
+            panic!("MutCursor::get_current_payload called before calling MutCursor::end_item_and_begin_body");
         }
         let current = self.current.as_ref().unwrap();
         if current.is_new {
             current.payload.as_ref()
+        } else if let Some(payload) = &current.payload {
+            Some(payload)
         } else if let Some(Slot::Begin(old)) = self.tree.slots.get(self.ix - 1) {
             Some(&old.body)
         } else {
