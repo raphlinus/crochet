@@ -58,6 +58,10 @@ impl<T> ListData<T> {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn push(&mut self, val: T) {
         self.0.push(ListItem::new(val));
     }
