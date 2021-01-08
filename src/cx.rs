@@ -1,14 +1,13 @@
 //! The main Crochet interface.
 
 use std::collections::HashMap;
+#[cfg(feature = "async-std")]
+use std::future::Future;
 use std::panic::Location;
 
 // The unused annotations are mostly for optional async.
 #[allow(unused)]
 use druid::{ExtEventSink, SingleUse, Target};
-
-#[cfg(feature = "async-std")]
-use async_std::future::Future;
 
 use crate::any_widget::DruidAppData;
 #[cfg(feature = "async-std")]
