@@ -40,7 +40,7 @@ pub struct List {
 }
 
 impl<T> ListItem<T> {
-    fn new(val: T) -> ListItem<T> {
+    fn new(val: T) -> Self {
         let id = Id::new();
         // There is the convention that rev_id == stable_id for a
         // newly created (never modified) item, but maybe we don't
