@@ -11,6 +11,7 @@
 //! enum. That design is not intended for long-term use. Also, the
 //! tree mutation data structures and algorithms are all designed in
 //! a straightforward way, not designed to be efficient at scale.
+#![allow(clippy::new_without_default)]
 
 mod any_widget;
 mod app_holder;
