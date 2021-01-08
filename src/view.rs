@@ -105,11 +105,7 @@ impl Row {
 
 impl View for Row {
     fn same(&self, other: &dyn View) -> bool {
-        if let Some(_other) = other.as_any().downcast_ref::<Self>() {
-            true
-        } else {
-            false
-        }
+        other.as_any().downcast_ref::<Self>().is_some()
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
@@ -137,11 +133,7 @@ impl Column {
 
 impl View for Column {
     fn same(&self, other: &dyn View) -> bool {
-        if let Some(_other) = other.as_any().downcast_ref::<Self>() {
-            true
-        } else {
-            false
-        }
+        other.as_any().downcast_ref::<Self>().is_some()
     }
 
     fn make_widget(&self, _id: Id) -> AnyWidget {
@@ -303,11 +295,7 @@ impl Clicked {
 
 impl View for Clicked {
     fn same(&self, other: &dyn View) -> bool {
-        if let Some(_other) = other.as_any().downcast_ref::<Self>() {
-            true
-        } else {
-            false
-        }
+        other.as_any().downcast_ref::<Self>().is_some()
     }
 
     fn make_widget(&self, id: Id) -> AnyWidget {
