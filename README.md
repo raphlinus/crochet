@@ -59,9 +59,9 @@ But overall the goal is to gather evidence for whether this architecture is viab
 
 ## License
 
-All files in this repo are released under an Apache 2.0 license. Some code has been cut and pasted from Druid, therefore carries a copyright of "The Druid Authors". See the [Druid repo] for the definitive authors list.
+All files in this repo are released under an Apache 2.0 license. Some code has been cut and pasted from Druid, therefore carries a copyright of "The Druid Authors". See the [Druid] repo for the definitive authors list.
 
-[Druid repo]: https://github.com/linebender/druid
+[Druid]: https://github.com/linebender/druid
 [optimistic merging]: http://hintjens.com/blog:106
 [Rust code of conduct]: https://www.rust-lang.org/policies/code-of-conduct
 [Towards a unified theory of reactive UI]: https://raphlinus.github.io/ui/druid/2019/11/22/reactive-ui.html
