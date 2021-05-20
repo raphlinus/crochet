@@ -77,6 +77,16 @@ impl<'a> Cx<'a> {
         self.mut_cursor.begin_loc(body, loc)
     }
 
+    /// Wrap the callback in begin_loc and end.
+    ///
+    /// This method is used by component attribute macro.
+    pub fn with_loc<T>(&mut self, loc: &'static Location, cb: impl FnOnce(&mut Self) -> T) -> T {
+        self.mut_cursor.begin_loc(Payload::Placeholder, loc);
+        let result = cb(self);
+        self.mut_cursor.end();
+        result
+    }
+
     /// Traverse into a subtree only if the data has changed.
     ///
     /// The supplied callback *must* create only one widget. This is not

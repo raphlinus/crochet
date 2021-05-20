@@ -19,7 +19,7 @@ features = ["crochet"]
 
 [dependencies]
 log = "0.4.11"
-
+crochet-macros = { path = "crochet-macros" }
 async-std = { version = "1.6.4", optional = true }
 futures = "0.3.5"
 
